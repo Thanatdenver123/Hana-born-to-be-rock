@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hana Born To Be Rock - Smart Face Search Gallery</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff', 100: '#e0effe', 200: '#b9ddfe',
+                            300: '#7cc2fd', 400: '#36a3f9', 500: '#0c87eb',
+                            600: '#006ac9', 700: '#0154a3', 800: '#064786', 900: '#0b3c6f'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Face-API.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans Thai', 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-[#f2f8fe] text-slate-800 min-h-screen relative overflow-x-hidden">
+
+    <!-- Ambient Waves -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-65">
+        <svg class="absolute -top-10 -left-20 w-[600px] h-[600px] text-blue-200/50" viewBox="0 0 500 500" fill="none">
+            <circle cx="150" cy="150" r="280" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" />
+            <circle cx="150" cy="150" r="210" stroke="currentColor" stroke-width="1.8" />
+            <circle cx="150" cy="150" r="140" stroke="currentColor" stroke-width="1.2" />
+        </svg>
+    </div>
+
+    <!-- Header -->
+    <header class="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-blue-100 shadow-[0_4px_20px_rgba(37,99,235,0.04)]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="h-10 px-3.5 bg-brand-600 rounded-xl flex items-center justify-center text-white font-extrabold text-sm tracking-wider shadow-md shadow-blue-300">
+                    HANA
+                </div>
+                <div class="hidden sm:block border-l border-blue-100 pl-3">
+                    <h1 class="font-bold text-base leading-tight text-slate-900 tracking-tight">Hana Born To Be Rock</h1>
+                    <p class="text-xs text-brand-600 font-medium">Google Drive Media Hub</p>
+                </div>
+            </div>
+
+            <!-- ช่องค้นหา -->
+            <div class="flex-1 max-w-sm relative">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-400"></i>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="ค้นหาชื่อไฟล์ หรือหมวดหมู่..." 
+                    class="w-full pl-10 pr-4 py-2 text-sm bg-white/90 border border-blue-200/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all shadow-sm"
+                >
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button 
+                    onclick="openFaceModal()" 
+                    class="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs sm:text-sm font-semibold shadow-md shadow-blue-500/20 transition-all hover:scale-105 active:scale-95"
+                >
+                    <i data-lucide="scan-face" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">สแกนหาหน้าตัวเอง</span>
+                    <span class="sm:hidden">สแกนหน้า</span>
+                </button>
+
+                <div class="text-xs font-semibold text-brand-700 bg-white px-3.5 py-2 rounded-full border border-blue-200 shadow-sm hidden md:flex items-center gap-1.5">
+                    <i data-lucide="images" class="w-3.5 h-3.5 text-brand-500"></i>
+                    <span id="imageCounter" class="text-brand-900 font-bold">0</span> ไฟล์
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Face Match Status Banner -->
+        <div id="faceStatusBanner" class="hidden bg-gradient-to-r from-brand-600 to-sky-600 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-white/80 shadow bg-slate-900 flex-shrink-0">
+                    <img id="faceQueryPreview" src="" alt="Target Face" class="w-full h-full object-cover">
+                </div>
+                <div>
+                    <h4 class="font-bold text-sm sm:text-base flex items-center gap-2">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-yellow-300"></i>
+                        ผลการค้นหาจากใบหน้าของคุณ (เรียงตามคะแนนความแม่นยำ)
+                    </h4>
+                    <p id="faceScanStats" class="text-xs text-blue-100">กำลังสแกนรูปภาพ...</p>
+                </div>
+            </div>
+            <button onclick="clearFaceSearch()" class="px-3.5 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold border border-white/40 transition-all">
+                ยกเลิกการสแกนหน้า
+            </button>
+        </div>
+
+        <!-- แท็บตัวกรองโฟลเดอร์ -->
+        <div id="folderTabs" class="hidden flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none"></div>
+
+        <!-- ตัวโหลดข้อมูล -->
+        <div id="driveLoading" class="text-center py-20 space-y-3">
+            <div class="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p id="loadingStatusText" class="text-sm font-semibold text-slate-600">กำลังเชื่อมต่อ Google Drive และค้นหาโฟลเดอร์ย่อย...</p>
+        </div>
+
+        <!-- Gallery Grid -->
+        <div id="galleryGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5"></div>
+
+        <!-- แจ้งเตือนเมื่อไม่พบข้อมูล -->
+        <div id="noResults" class="hidden text-center py-20 bg-white rounded-3xl border border-blue-100 shadow-sm">
+            <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-brand-500 mb-4 border border-blue-100">
+                <i data-lucide="search-x" class="w-8 h-8"></i>
+            </div>
+            <h3 class="text-slate-800 font-bold text-lg">ไม่พบไฟล์ที่คุณค้นหา</h3>
+            <p class="text-slate-400 text-sm mt-1">ลองเปลี่ยนคำค้นหา หรือสลับหมวดหมู่โฟลเดอร์</p>
+        </div>
+    </main>
+
+    <!-- Modal Face Recognition -->
+    <div id="faceModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-blue-100 space-y-5 relative">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-blue-50 text-brand-600 flex items-center justify-center">
+                        <i data-lucide="scan-face" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">สแกนใบหน้าเพื่อค้นหารูป</h3>
+                        <p class="text-xs text-slate-400">เลือกเปิดกล้องสด หรืออัปโหลดรูปหน้าตรงของคุณ</p>
+                    </div>
+                </div>
+                <button onclick="closeFaceModal()" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="relative aspect-video w-full bg-slate-900 rounded-2xl overflow-hidden flex items-center justify-center border border-slate-200">
+                <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover hidden"></video>
+                <img id="uploadPreview" src="" class="w-full h-full object-cover hidden" alt="Face Preview">
+                
+                <div id="placeholderCamera" class="text-center p-6 text-slate-400 space-y-2">
+                    <i data-lucide="user" class="w-12 h-12 mx-auto text-slate-600"></i>
+                    <p class="text-xs">กดเปิดกล้อง หรือเลือกอัปโหลดรูปที่มีหน้าตรงชัดเจน</p>
+                </div>
+
+                <div id="cameraFrame" class="hidden absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div class="w-44 h-44 rounded-full border-2 border-brand-400/80 border-dashed animate-pulse"></div>
+                </div>
+
+                <div id="faceLoadingOverlay" class="hidden absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex flex-col items-center justify-center text-white space-y-3 p-4 text-center">
+                    <div class="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p id="faceLoadingText" class="text-sm font-medium">กำลังเตรียมโมเดล AI...</p>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="startCamBtn" onclick="toggleCamera()" class="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-brand-700 font-semibold text-xs border border-blue-200">
+                        <i data-lucide="video" class="w-4 h-4"></i>
+                        <span id="camBtnText">เปิดกล้องสด</span>
+                    </button>
+                    
+                    <label class="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200 cursor-pointer">
+                        <i data-lucide="upload" class="w-4 h-4"></i>
+                        <span>อัปโหลดรูปหน้า</span>
+                        <input type="file" id="faceFileInput" accept="image/*" class="hidden" onchange="handleFaceUpload(event)">
+                    </label>
+                </div>
+
+                <button id="captureFaceBtn" onclick="processFaceSearch()" disabled class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm shadow-md transition-all">
+                    ยืนยันใบหน้านี้ & เริ่มค้นหาทันที
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-lg hidden flex flex-col justify-between p-4 select-none">
+        <div class="flex items-center justify-between text-white max-w-7xl w-full mx-auto pb-2 border-b border-white/10">
+            <div class="text-sm">
+                <p id="modalTitle" class="font-bold text-white truncate max-w-md"></p>
+                <p id="modalMeta" class="text-xs text-blue-200"></p>
+            </div>
+            <div class="flex items-center gap-2">
+                <a id="downloadBtn" href="#" target="_blank" class="flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-medium transition-all shadow-md">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>เปิด / ดาวน์โหลดต้นฉบับ</span>
+                </a>
+                <button onclick="closeModal()" class="p-2 hover:bg-white/10 rounded-lg text-white/80 hover:text-white">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="relative flex-1 flex items-center justify-center my-4 overflow-hidden">
+            <button onclick="prevItem(event)" class="absolute left-2 sm:left-6 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md">
+                <i data-lucide="chevron-left" class="w-6 h-6"></i>
+            </button>
+
+            <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-xl shadow-2xl">
+            <iframe id="modalVideoFrame" src="" class="hidden w-full max-w-4xl h-[70vh] rounded-xl shadow-2xl border-0" allow="autoplay"></iframe>
+
+            <button onclick="nextItem(event)" class="absolute right-2 sm:right-6 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md">
+                <i data-lucide="chevron-right" class="w-6 h-6"></i>
+            </button>
+        </div>
+
+        <div class="text-center text-xs text-slate-400">
+            กดลูกศร <span class="bg-white/10 px-1.5 py-0.5 rounded text-white">←</span> <span class="bg-white/10 px-1.5 py-0.5 rounded text-white">→</span> เพื่อเลื่อนภาพ | กด <span class="bg-white/10 px-1.5 py-0.5 rounded text-white">Esc</span> เพื่อปิด
+        </div>
+    </div>
+
+    <script>
+        const GOOGLE_API_KEY = 'AIzaSyBpNe477-EhO0iWExQJqcuRXNiGiwHfABE';
+        const ROOT_FOLDER_ID = '17qWKQ4AIsFEVXNlFSEp7Mu2C_qWmKjPK';
+
+        let mediaItems = [];
+        let filteredIndices = [];
+        let currentIndex = 0;
+        let activeFilter = 'all';
+        let isFaceSearching = false;
+        let detectedFolders = [];
+
+        const galleryGrid = document.getElementById('galleryGrid');
+        const folderTabs = document.getElementById('folderTabs');
+        const driveLoading = document.getElementById('driveLoading');
+        const loadingStatusText = document.getElementById('loadingStatusText');
+        const noResults = document.getElementById('noResults');
+        const imageCounter = document.getElementById('imageCounter');
+        const searchInput = document.getElementById('searchInput');
+
+        // ฟังก์ชันเรียก Google Drive API รองรับ Pagination (ดึงไฟล์ทั้งหมดไม่เกิน 1,000 ไฟล์ต่อโฟลเดอร์)
+        async function fetchDriveFiles(query) {
+            let files = [];
+            let pageToken = '';
+            do {
+                const fields = 'nextPageToken, files(id, name, mimeType, size, webViewLink, thumbnailLink)';
+                let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&key=${GOOGLE_API_KEY}`;
+                if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
+
+                const res = await fetch(url);
+                if (!res.ok) {
+                    const errJson = await res.json().catch(() => ({}));
+                    throw new Error(errJson.error ? errJson.error.message : `HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                if (data.files) files = files.concat(data.files);
+                pageToken = data.nextPageToken || '';
+            } while (pageToken);
+
+            return files;
+        }
+
+        // ดึงไฟล์ทุกโฟลเดอร์ย่อย
+        async function fetchAllMedia() {
+            try {
+                loadingStatusText.innerText = 'กำลังตรวจสอบโครงสร้างโฟลเดอร์บน Google Drive...';
+                
+                // ดึงโฟลเดอร์ย่อยทั้งหมดที่อยู่ในโฟลเดอร์หลัก
+                const subfolderQuery = `'${ROOT_FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+                const subfolders = await fetchDriveFiles(subfolderQuery);
+
+                detectedFolders = subfolders.map(sf => sf.name);
+                renderFolderTabs();
+
+                const foldersToScan = [{ id: ROOT_FOLDER_ID, name: 'ทั่วไป' }];
+                subfolders.forEach(sf => foldersToScan.push({ id: sf.id, name: sf.name }));
+
+                let allFiles = [];
+
+                for (let i = 0; i < foldersToScan.length; i++) {
+                    const folder = foldersToScan[i];
+                    loadingStatusText.innerText = `กำลังอ่านไฟล์ในโฟลเดอร์ "${folder.name}" (${i + 1}/${foldersToScan.length})...`;
+                    
+                    const fileQuery = `'${folder.id}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
+                    const files = await fetchDriveFiles(fileQuery);
+
+                    files.forEach(file => {
+                        const isImg = file.mimeType.startsWith('image/');
+                        const isVid = file.mimeType.startsWith('video/');
+                        if (!isImg && !isVid) return;
+
+                        const sizeMB = file.size ? (parseInt(file.size) / (1024 * 1024)).toFixed(2) + ' MB' : 'N/A';
+                        const thumbUrl = file.thumbnailLink ? file.thumbnailLink.replace(/=s\d+/, '=s600') : `https://drive.google.com/thumbnail?id=${file.id}&sz=w600`;
+
+                        allFiles.push({
+                            id: file.id,
+                            name: file.name,
+                            folder: folder.name,
+                            type: isVid ? 'video' : 'image',
+                            size: sizeMB,
+                            thumb: thumbUrl,
+                            webViewLink: file.webViewLink,
+                            previewUrl: `https://drive.google.com/file/d/${file.id}/preview`,
+                            faceScore: 0
+                        });
+                    });
+                }
+
+                mediaItems = allFiles;
+                mediaItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+                driveLoading.classList.add('hidden');
+                galleryGrid.classList.remove('hidden');
+
+                applySmartSearch();
+
+            } catch (err) {
+                console.error(err);
+                driveLoading.innerHTML = `
+                    <div class="p-6 bg-rose-50 text-rose-800 rounded-2xl max-w-lg mx-auto border border-rose-200">
+                        <p class="font-bold text-base mb-1">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>
+                        <p class="text-xs">${err.message}</p>
+                    </div>`;
+            }
+        }
+
+        // แสดงแท็บโฟลเดอร์
+        function renderFolderTabs() {
+            if (detectedFolders.length === 0) return;
+
+            folderTabs.innerHTML = `
+                <button onclick="setFilter('all', this)" class="filter-tab active px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20">
+                    ทั้งหมด
+                </button>
+            `;
+
+            detectedFolders.forEach(folderName => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-tab px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all bg-white text-slate-600 hover:bg-blue-50 hover:text-brand-600 border border-blue-200/80 shadow-sm';
+                btn.innerHTML = `📁 ${folderName}`;
+                btn.onclick = () => setFilter(folderName, btn);
+                folderTabs.appendChild(btn);
+            });
+
+            folderTabs.classList.remove('hidden');
+        }
+
+        function setFilter(folder, btnElement) {
+            activeFilter = folder;
+            document.querySelectorAll('.filter-tab').forEach(b => {
+                b.className = 'filter-tab px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all bg-white text-slate-600 hover:bg-blue-50 hover:text-brand-600 border border-blue-200/80 shadow-sm';
+            });
+            btnElement.className = 'filter-tab active px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20';
+            applySmartSearch();
+        }
+
+        // แสดงผล Grid
+        function renderGallery(indices) {
+            filteredIndices = indices;
+            galleryGrid.innerHTML = '';
+            imageCounter.innerText = indices.length;
+
+            if (indices.length === 0) {
+                noResults.classList.remove('hidden');
+                return;
+            }
+            noResults.classList.add('hidden');
+
+            indices.forEach(idx => {
+                const item = mediaItems[idx];
+                const card = document.createElement('div');
+                card.className = 'group relative bg-white rounded-2xl overflow-hidden border border-blue-100 shadow-[0_4px_16px_rgba(37,99,235,0.04)] hover:shadow-[0_12px_28px_rgba(37,99,235,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer';
+                card.onclick = () => openModal(idx);
+
+                let badgeHtml = '';
+                if (isFaceSearching && item.faceScore > 0) {
+                    badgeHtml = `<span class="absolute top-2 left-2 z-10 px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold shadow-md">ตรงกัน ${item.faceScore}%</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="px-3 py-2 bg-white/95 border-b border-blue-50 flex items-center justify-between text-[11px] font-medium text-slate-600">
+                        <span class="truncate text-brand-600 font-semibold" title="${item.name}">${item.name}</span>
+                        <span class="text-[10px] text-slate-400 font-normal ml-2 flex-shrink-0">${item.size}</span>
+                    </div>
+                    <div class="aspect-square w-full bg-slate-100 overflow-hidden relative">
+                        ${badgeHtml}
+                        ${item.type === 'video' ? `
+                            <img src="${item.thumb}" class="w-full h-full object-cover" loading="lazy">
+                            <div class="absolute inset-0 bg-slate-900/30 flex items-center justify-center">
+                                <span class="w-10 h-10 rounded-full bg-white/90 text-brand-600 flex items-center justify-center shadow-lg">
+                                    <i data-lucide="play" class="w-5 h-5 fill-current ml-0.5"></i>
+                                </span>
+                            </div>
+                            <span class="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-brand-600/90 text-white text-[10px] font-bold uppercase">VIDEO</span>
+                        ` : `
+                            <img src="${item.thumb}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            <div class="absolute inset-0 bg-blue-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <span class="p-2.5 bg-white/95 rounded-full text-brand-600 shadow-md">
+                                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                                </span>
+                            </div>
+                        `}
+                    </div>
+                `;
+                galleryGrid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        // ค้นหาแบบรวมคำ
+        function applySmartSearch() {
+            const rawQuery = searchInput.value.toLowerCase().trim();
+            const tokens = rawQuery.split(/\s+/).filter(Boolean);
+
+            let results = [];
+            mediaItems.forEach((item, index) => {
+                const matchesFolder = (activeFilter === 'all' || item.folder === activeFilter);
+                if (!matchesFolder) return;
+
+                if (tokens.length === 0) {
+                    results.push(index);
+                    return;
+                }
+
+                const searchableText = `${item.name} ${item.folder}`.toLowerCase();
+                const allMatch = tokens.every(token => searchableText.includes(token));
+                if (allMatch) results.push(index);
+            });
+
+            if (isFaceSearching) {
+                results = results.filter(idx => mediaItems[idx].faceScore > 0);
+                results.sort((a, b) => mediaItems[b].faceScore - mediaItems[a].faceScore);
+            }
+
+            renderGallery(results);
+        }
+        searchInput.addEventListener('input', applySmartSearch);
+
+        // ==========================================
+        // ระบบ Face Recognition
+        // ==========================================
+        let modelsLoaded = false;
+        let webcamStream = null;
+        let targetFaceDescriptor = null;
+
+        const faceModal = document.getElementById('faceModal');
+        const webcam = document.getElementById('webcam');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const placeholderCamera = document.getElementById('placeholderCamera');
+        const cameraFrame = document.getElementById('cameraFrame');
+        const captureFaceBtn = document.getElementById('captureFaceBtn');
+        const camBtnText = document.getElementById('camBtnText');
+        const faceLoadingOverlay = document.getElementById('faceLoadingOverlay');
+        const faceLoadingText = document.getElementById('faceLoadingText');
+        const faceStatusBanner = document.getElementById('faceStatusBanner');
+        const faceQueryPreview = document.getElementById('faceQueryPreview');
+        const faceScanStats = document.getElementById('faceScanStats');
+
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+
+        async function loadFaceModels() {
+            if (modelsLoaded) return true;
+            faceLoadingOverlay.classList.remove('hidden');
+            faceLoadingText.innerText = 'กำลังโหลดโมเดล AI...';
+            try {
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+                modelsLoaded = true;
+                faceLoadingOverlay.classList.add('hidden');
+                return true;
+            } catch (err) {
+                alert('ไม่สามารถโหลดโมเดล AI ได้');
+                faceLoadingOverlay.classList.add('hidden');
+                return false;
+            }
+        }
+
+        async function openFaceModal() {
+            faceModal.classList.remove('hidden');
+            await loadFaceModels();
+        }
+
+        function closeFaceModal() {
+            stopCamera();
+            faceModal.classList.add('hidden');
+        }
+
+        async function toggleCamera() {
+            if (webcamStream) {
+                stopCamera();
+            } else {
+                try {
+                    webcamStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } 
+                    });
+                    webcam.srcObject = webcamStream;
+                    webcam.classList.remove('hidden');
+                    uploadPreview.classList.add('hidden');
+                    placeholderCamera.classList.add('hidden');
+                    cameraFrame.classList.remove('hidden');
+                    camBtnText.innerText = 'ปิดกล้อง';
+                    captureFaceBtn.disabled = false;
+                } catch (e) {
+                    alert('ไม่สามารถเปิดกล้องได้');
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+                webcam.classList.add('hidden');
+                cameraFrame.classList.add('hidden');
+                camBtnText.innerText = 'เปิดกล้องสด';
+                if (uploadPreview.classList.contains('hidden')) {
+                    placeholderCamera.classList.remove('hidden');
+                    captureFaceBtn.disabled = true;
+                }
+            }
+        }
+
+        function handleFaceUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            stopCamera();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                uploadPreview.src = event.target.result;
+                uploadPreview.classList.remove('hidden');
+                placeholderCamera.classList.add('hidden');
+                captureFaceBtn.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function processFaceSearch() {
+            await loadFaceModels();
+            faceLoadingOverlay.classList.remove('hidden');
+            faceLoadingText.innerText = 'กำลังประมวลผลใบหน้าเป้าหมาย...';
+
+            let detection = null;
+            let previewSrc = '';
+
+            if (webcamStream && !webcam.classList.contains('hidden')) {
+                const canvas = document.createElement('canvas');
+                canvas.width = webcam.videoWidth;
+                canvas.height = webcam.videoHeight;
+                canvas.getContext('2d').drawImage(webcam, 0, 0, canvas.width, canvas.height);
+                previewSrc = canvas.toDataURL('image/jpeg');
+                detection = await faceapi.detectSingleFace(canvas).withFaceLandmarks().withFaceDescriptor();
+            } else if (!uploadPreview.classList.contains('hidden')) {
+                previewSrc = uploadPreview.src;
+                detection = await faceapi.detectSingleFace(uploadPreview).withFaceLandmarks().withFaceDescriptor();
+            }
+
+            if (!detection) {
+                faceLoadingOverlay.classList.add('hidden');
+                alert('ไม่พบใบหน้าที่ชัดเจน กรุณาลองใหม่อีกครั้ง');
+                return;
+            }
+
+            targetFaceDescriptor = detection.descriptor;
+            faceQueryPreview.src = previewSrc;
+            closeFaceModal();
+
+            await matchFacesInDrive();
+        }
+
+        async function matchFacesInDrive() {
+            isFaceSearching = true;
+            faceStatusBanner.classList.remove('hidden');
+            const threshold = 0.58;
+
+            const imageIndices = mediaItems
+                .map((item, idx) => ({ item, idx }))
+                .filter(x => x.item.type === 'image');
+
+            let scanned = 0;
+            let matchedIndices = [];
+
+            for (const { item, idx } of imageIndices) {
+                scanned++;
+                faceScanStats.innerText = `กำลังสแกนรูปภาพที่ ${scanned} จาก ${imageIndices.length} รูป (พบตรงกันแล้ว ${matchedIndices.length} รูป)...`;
+
+                try {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.src = item.thumb;
+                    await img.decode();
+
+                    const detections = await faceapi.detectAllFaces(img).withFaceLandmarks().withFaceDescriptors();
+                    let bestDist = 1.0;
+
+                    for (const det of detections) {
+                        const dist = faceapi.euclideanDistance(targetFaceDescriptor, det.descriptor);
+                        if (dist < bestDist) bestDist = dist;
+                    }
+
+                    if (bestDist <= threshold) {
+                        const score = Math.round(Math.max(0, (1 - bestDist / threshold)) * 100);
+                        item.faceScore = score;
+                        matchedIndices.push(idx);
+                        matchedIndices.sort((a, b) => mediaItems[b].faceScore - mediaItems[a].faceScore);
+                        renderGallery(matchedIndices);
+                    }
+                } catch (e) {
+                    console.warn('Face scan skipped:', item.name, e);
+                }
+            }
+
+            faceScanStats.innerText = `เสร็จสิ้น! พบรูปภาพของคุณทั้งหมด ${matchedIndices.length} รูป`;
+        }
+
+        function clearFaceSearch() {
+            isFaceSearching = false;
+            targetFaceDescriptor = null;
+            faceStatusBanner.classList.add('hidden');
+            mediaItems.forEach(i => i.faceScore = 0);
+            applySmartSearch();
+        }
+
+        // ==========================================
+        // Modal Preview Lightbox
+        // ==========================================
+        const lightbox = document.getElementById('lightbox');
+        const modalImg = document.getElementById('modalImage');
+        const modalVideoFrame = document.getElementById('modalVideoFrame');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMeta = document.getElementById('modalMeta');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        function openModal(index) {
+            currentIndex = index;
+            renderModalContent();
+            lightbox.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            lightbox.classList.add('hidden');
+            modalVideoFrame.src = '';
+            document.body.style.overflow = '';
+        }
+
+        function renderModalContent() {
+            const item = mediaItems[currentIndex];
+            modalTitle.innerText = item.name;
+            modalMeta.innerText = `โฟลเดอร์: ${item.folder} • ขนาด: ${item.size} ${item.faceScore > 0 ? `• ตรงกัน: ${item.faceScore}%` : ''}`;
+            downloadBtn.href = item.webViewLink;
+
+            if (item.type === 'video') {
+                modalImg.classList.add('hidden');
+                modalVideoFrame.classList.remove('hidden');
+                modalVideoFrame.src = item.previewUrl;
+            } else {
+                modalVideoFrame.classList.add('hidden');
+                modalVideoFrame.src = '';
+                modalImg.classList.remove('hidden');
+                modalImg.src = item.thumb.replace(/=s\d+/, '=s1600');
+            }
+        }
+
+        function nextItem(e) {
+            if (e) e.stopPropagation();
+            if (filteredIndices.length === 0) return;
+            const pos = filteredIndices.indexOf(currentIndex);
+            const nextPos = (pos + 1) % filteredIndices.length;
+            currentIndex = filteredIndices[nextPos];
+            renderModalContent();
+        }
+
+        function prevItem(e) {
+            if (e) e.stopPropagation();
+            if (filteredIndices.length === 0) return;
+            const pos = filteredIndices.indexOf(currentIndex);
+            const prevPos = (pos - 1 + filteredIndices.length) % filteredIndices.length;
+            currentIndex = filteredIndices[prevPos];
+            renderModalContent();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (lightbox.classList.contains('hidden')) return;
+            if (e.key === 'Escape') closeModal();
+            if (e.key === 'ArrowRight') nextItem();
+            if (e.key === 'ArrowLeft') prevItem();
+        });
+
+        // เริ่มโหลดรูปทั้งหมด
+        fetchAllMedia();
+    </script>
+</body>
+</html>
