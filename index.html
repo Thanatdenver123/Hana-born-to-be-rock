@@ -240,7 +240,7 @@
         const imageCounter = document.getElementById('imageCounter');
         const searchInput = document.getElementById('searchInput');
 
-        // ฟังก์ชันเรียก API ดึงข้อมูลไฟล์จาก Google Drive
+        // ฟังก์ชันเรียก API ดึงข้อมูลไฟล์จาก Google Drive รองรับ Pagination
         async function fetchDriveFiles(query) {
             let files = [];
             let pageToken = '';
@@ -262,82 +262,71 @@
             return files;
         }
 
-        // ฟังก์ชัน Recursive ดึงไฟล์จากโฟลเดอร์ซ้อนโฟลเดอร์ลึกลงไปทุกชั้น
-        async function scanFolderRecursively(folderId, rootCategoryName) {
-            let filesFound = [];
-
-            // 1. ดึงไฟล์รูปและวิดีโอในระดับโฟลเดอร์นี้
-            const fileQuery = `'${folderId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
-            const files = await fetchDriveFiles(fileQuery);
-
-            files.forEach(file => {
-                const isImg = file.mimeType.startsWith('image/');
-                const isVid = file.mimeType.startsWith('video/');
-                if (!isImg && !isVid) return;
-
-                const sizeMB = file.size ? (parseInt(file.size) / (1024 * 1024)).toFixed(2) + ' MB' : 'N/A';
-                const thumbUrl = file.thumbnailLink 
-                    ? file.thumbnailLink.replace(/=s\d+/, '=s600') 
-                    : `https://drive.google.com/thumbnail?id=${file.id}&sz=w600`;
-
-                filesFound.push({
-                    id: file.id,
-                    name: file.name,
-                    folder: rootCategoryName,
-                    type: isVid ? 'video' : 'image',
-                    size: sizeMB,
-                    thumb: thumbUrl,
-                    webViewLink: file.webViewLink,
-                    previewUrl: `https://drive.google.com/file/d/${file.id}/preview`,
-                    faceScore: 0
-                });
-            });
-
-            // 2. ตรวจสอบโฟลเดอร์ย่อยซ้อนด้านใน (เช่น งานเลี้ยง, กีฬา, Video)
-            const subfolderQuery = `'${folderId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-            const subfolders = await fetchDriveFiles(subfolderQuery);
-
-            for (const sub of subfolders) {
-                loadingStatusText.innerText = `กำลังสแกนโฟลเดอร์ย่อย "${rootCategoryName} > ${sub.name}"...`;
-                const nestedFiles = await scanFolderRecursively(sub.id, rootCategoryName);
-                filesFound = filesFound.concat(nestedFiles);
-            }
-
-            return filesFound;
-        }
-
-        // ดึงไฟล์ทั้งหมดจาก Google Drive
+        // ดึงไฟล์แบบคู่ขนาน (Parallel Fetch) และแสดงผลทันทีแบบ Progressive
         async function fetchAllMedia() {
             try {
-                loadingStatusText.innerText = 'กำลังตรวจสอบโครงสร้างโฟลเดอร์บน Google Drive...';
+                loadingStatusText.innerText = 'กำลังเตรียมโครงสร้างโฟลเดอร์...';
                 
-                // ค้นหาโฟลเดอร์หลักชั้นแรก
+                // 1. ดึงโฟลเดอร์หลักชั้นแรก
                 const mainSubQuery = `'${ROOT_FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
                 const mainSubfolders = await fetchDriveFiles(mainSubQuery);
 
                 detectedFolders = mainSubfolders.map(sf => sf.name);
                 renderFolderTabs();
 
-                const rootFolders = [{ id: ROOT_FOLDER_ID, name: 'ทั่วไป' }];
-                mainSubfolders.forEach(sf => rootFolders.push({ id: sf.id, name: sf.name }));
-
-                let allFiles = [];
-
-                for (let i = 0; i < rootFolders.length; i++) {
-                    const rf = rootFolders[i];
-                    loadingStatusText.innerText = `กำลังดึงข้อมูลจากหมวด "${rf.name}" (${i + 1}/${rootFolders.length})...`;
-                    
-                    const folderFiles = await scanFolderRecursively(rf.id, rf.name);
-                    allFiles = allFiles.concat(folderFiles);
-                }
-
-                mediaItems = allFiles;
-                mediaItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-
+                // ซ่อน loading และเปิดพื้นที่ตารางแสดงรูปทันที
                 driveLoading.classList.add('hidden');
                 galleryGrid.classList.remove('hidden');
 
-                applySmartSearch();
+                const processCategory = async (mainFolder) => {
+                    let folderIds = [mainFolder.id];
+
+                    // ตรวจสอบโฟลเดอร์ย่อยข้างใน (เช่น งานเลี้ยง, กีฬา, Video)
+                    const subQuery = `'${mainFolder.id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+                    const subSubFolders = await fetchDriveFiles(subQuery);
+                    subSubFolders.forEach(s => folderIds.push(s.id));
+
+                    // ดึงไฟล์จากทุกโฟลเดอร์ย่อยพร้อมกัน
+                    const filePromises = folderIds.map(fId => {
+                        const q = `'${fId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
+                        return fetchDriveFiles(q);
+                    });
+
+                    const results = await Promise.all(filePromises);
+                    const flatFiles = results.flat();
+
+                    const parsedFiles = [];
+                    flatFiles.forEach(file => {
+                        const isImg = file.mimeType.startsWith('image/');
+                        const isVid = file.mimeType.startsWith('video/');
+                        if (!isImg && !isVid) return;
+
+                        const sizeMB = file.size ? (parseInt(file.size) / (1024 * 1024)).toFixed(2) + ' MB' : 'N/A';
+                        const thumbUrl = file.thumbnailLink 
+                            ? file.thumbnailLink.replace(/=s\d+/, '=s600') 
+                            : `https://drive.google.com/thumbnail?id=${file.id}&sz=w600`;
+
+                        parsedFiles.push({
+                            id: file.id,
+                            name: file.name,
+                            folder: mainFolder.name,
+                            type: isVid ? 'video' : 'image',
+                            size: sizeMB,
+                            thumb: thumbUrl,
+                            webViewLink: file.webViewLink,
+                            previewUrl: `https://drive.google.com/file/d/${file.id}/preview`,
+                            faceScore: 0
+                        });
+                    });
+
+                    // ใส่รูปเข้าตารางและอัปเดตหน้าจอทันทีเมื่อหมวดนี้โหลดเสร็จ
+                    mediaItems = mediaItems.concat(parsedFiles);
+                    mediaItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+                    applySmartSearch();
+                };
+
+                // ดึงข้อมูลแต่ละโฟลเดอร์หลักพร้อมกันทุกหมวด
+                await Promise.all(mainSubfolders.map(processCategory));
 
             } catch (err) {
                 console.error(err);
@@ -462,7 +451,7 @@
         searchInput.addEventListener('input', applySmartSearch);
 
         // ==========================================
-        // ระบบ FACE RECOGNITION SEARCH
+        // ระบบ FACE RECOGNITION SEARCH (TinyFaceDetector ความเร็วสูง)
         // ==========================================
         let modelsLoaded = false;
         let webcamStream = null;
@@ -486,10 +475,10 @@
         async function loadFaceModels() {
             if (modelsLoaded) return true;
             faceLoadingOverlay.classList.remove('hidden');
-            faceLoadingText.innerText = 'กำลังโหลดโมเดล AI ตรวจจับใบหน้า...';
+            faceLoadingText.innerText = 'กำลังโหลดโมเดล AI ความเร็วสูง...';
             try {
                 await Promise.all([
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
                     faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
                     faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
                 ]);
@@ -497,7 +486,7 @@
                 faceLoadingOverlay.classList.add('hidden');
                 return true;
             } catch (err) {
-                alert('ไม่สามารถโหลดโมเดลตรวจจับใบหน้าได้ กรุณาตรวจสอบอินเทอร์เน็ต');
+                alert('ไม่สามารถโหลดโมเดล AI ได้');
                 faceLoadingOverlay.classList.add('hidden');
                 return false;
             }
@@ -565,10 +554,11 @@
         async function processFaceSearch() {
             await loadFaceModels();
             faceLoadingOverlay.classList.remove('hidden');
-            faceLoadingText.innerText = 'กำลังประมวลผลใบหน้าเป้าหมาย...';
+            faceLoadingText.innerText = 'กำลังประมวลผลใบหน้า...';
 
             let detection = null;
             let previewSrc = '';
+            const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
 
             if (webcamStream && !webcam.classList.contains('hidden')) {
                 const canvas = document.createElement('canvas');
@@ -576,15 +566,15 @@
                 canvas.height = webcam.videoHeight;
                 canvas.getContext('2d').drawImage(webcam, 0, 0, canvas.width, canvas.height);
                 previewSrc = canvas.toDataURL('image/jpeg');
-                detection = await faceapi.detectSingleFace(canvas).withFaceLandmarks().withFaceDescriptor();
+                detection = await faceapi.detectSingleFace(canvas, detectorOptions).withFaceLandmarks().withFaceDescriptor();
             } else if (!uploadPreview.classList.contains('hidden')) {
                 previewSrc = uploadPreview.src;
-                detection = await faceapi.detectSingleFace(uploadPreview).withFaceLandmarks().withFaceDescriptor();
+                detection = await faceapi.detectSingleFace(uploadPreview, detectorOptions).withFaceLandmarks().withFaceDescriptor();
             }
 
             if (!detection) {
                 faceLoadingOverlay.classList.add('hidden');
-                alert('ไม่พบใบหน้าที่ชัดเจน กรุณาปรับแสงหรือจัดระเบียบใบหน้าให้ตรงกับกรอบ');
+                alert('ไม่พบใบหน้าที่ชัดเจน กรุณาลองใหม่อีกครั้ง');
                 return;
             }
 
@@ -599,6 +589,7 @@
             isFaceSearching = true;
             faceStatusBanner.classList.remove('hidden');
             const threshold = 0.58;
+            const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
 
             const imageIndices = mediaItems
                 .map((item, idx) => ({ item, idx }))
@@ -609,7 +600,7 @@
 
             for (const { item, idx } of imageIndices) {
                 scanned++;
-                faceScanStats.innerText = `กำลังสแกนรูปภาพที่ ${scanned} จาก ${imageIndices.length} รูป (พบตรงกันแล้ว ${matchedIndices.length} รูป)...`;
+                faceScanStats.innerText = `กำลังสแกนรูปที่ ${scanned} จาก ${imageIndices.length} รูป (พบแล้ว ${matchedIndices.length} รูป)...`;
 
                 try {
                     const img = new Image();
@@ -617,7 +608,7 @@
                     img.src = item.thumb;
                     await img.decode();
 
-                    const detections = await faceapi.detectAllFaces(img).withFaceLandmarks().withFaceDescriptors();
+                    const detections = await faceapi.detectAllFaces(img, detectorOptions).withFaceLandmarks().withFaceDescriptors();
                     let bestDist = 1.0;
 
                     for (const det of detections) {
@@ -633,11 +624,11 @@
                         renderGallery(matchedIndices);
                     }
                 } catch (e) {
-                    console.warn('Face scan skipped:', item.name, e);
+                    // ข้ามไฟล์ที่มีปัญหา
                 }
             }
 
-            faceScanStats.innerText = `เสร็จสิ้น! พบรูปภาพของคุณทั้งหมด ${matchedIndices.length} รูป`;
+            faceScanStats.innerText = `เสร็จสิ้น! พบรูปภาพทั้งหมด ${matchedIndices.length} รูป`;
         }
 
         function clearFaceSearch() {
@@ -714,7 +705,7 @@
             if (e.key === 'ArrowLeft') prevItem();
         });
 
-        // เริ่มโหลดรูปทั้งหมดเมื่อเปิดหน้าเว็บ
+        // เริ่มโหลดรูปทั้งหมด
         fetchAllMedia();
     </script>
 </body>
