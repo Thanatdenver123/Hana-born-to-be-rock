@@ -217,7 +217,7 @@
                 </button>
             </div>
 
-            <!-- กล้องแนวตั้งแบบแอปธนาคาร (Aspect Ratio 3:4) -->
+            <!-- กล้องแนวตั้งแบบแอปธนาคาร -->
             <div class="flex-1 min-h-[380px] flex items-center justify-center relative">
                 <div class="scanner-wrapper">
                     <div class="face-scanner-container">
@@ -279,7 +279,7 @@
         </div>
     </div>
 
-    <!-- Lightbox Modal สำหรับดูรูปและเปิดวิดีโอ (ตัด Iframe ออก ใช้ปุ่มเปิดแอปนอก) -->
+    <!-- Lightbox Modal สำหรับดูรูปและวิดีโอ (ใช้ Native Video Player) -->
     <div id="lightbox" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl hidden flex flex-col justify-between p-2 sm:p-4 select-none">
         <div class="flex items-center justify-between text-white max-w-7xl w-full mx-auto pb-2 border-b border-white/10 mt-2 sm:mt-0">
             <div class="text-sm overflow-hidden pr-2">
@@ -305,19 +305,13 @@
                 <i data-lucide="chevron-left" class="w-6 h-6"></i>
             </button>
 
-            <!-- แสดงรูปภาพ หรือ ภาพพรีวิววิดีโอ -->
+            <!-- แสดงรูปภาพ -->
             <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
             
-            <!-- ปุ่ม Play ทับบนรูปพรีวิวสำหรับวิดีโอ (เปิดแอปนอก) -->
-            <div id="videoPlayOverlay" class="hidden absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-20" onclick="playExternalVideo()">
-                <div class="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.5)] hover:scale-110 transition-transform">
-                    <i data-lucide="play" class="w-10 h-10 text-brand-600 ml-2"></i>
-                </div>
-                <div class="mt-6 bg-black/70 backdrop-blur-md px-5 py-2 rounded-full border border-white/20 shadow-lg flex items-center gap-2">
-                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
-                    <span class="text-white text-xs font-semibold">แตะเพื่อเปิดเล่นวิดีโอ (App ภายนอก)</span>
-                </div>
-            </div>
+            <!-- เครื่องเล่นวิดีโอ HTML5 ในตัว (โหลดสตรีมตรงข้ามหน้าเว็บกูเกิล) -->
+            <video id="modalVideoPlayer" controls playsinline class="hidden max-h-full max-w-full rounded-lg sm:rounded-xl shadow-2xl bg-black outline-none w-full sm:w-auto h-[60vh] sm:h-[70vh]">
+                เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
+            </video>
 
             <button onclick="nextItem(event)" class="absolute right-1 sm:right-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                 <i data-lucide="chevron-right" class="w-6 h-6"></i>
@@ -333,7 +327,7 @@
     <script>
         const GOOGLE_API_KEY = 'AIzaSyBpNe477-EhO0iWExQJqcuRXNiGiwHfABE';
         const ROOT_FOLDER_ID = '17qWKQ4AIsFEVXNlFSEp7Mu2C_qWmKjPK';
-        const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V2';
+        const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V3';
         const CACHE_DURATION_MS = 20 * 60 * 1000;
 
         let mediaItems = [];
@@ -343,7 +337,6 @@
         let isFaceSearching = false;
         let detectedFolders = [];
         let candidateMatches = []; 
-        let currentExternalVideoUrl = '';
 
         const galleryGrid = document.getElementById('galleryGrid');
         const folderTabs = document.getElementById('folderTabs');
@@ -445,7 +438,6 @@
                             size: sizeMB,
                             thumb: thumbUrl,
                             webViewLink: file.webViewLink,
-                            previewUrl: `https://drive.google.com/file/d/${file.id}/preview`,
                             faceScore: 0
                         });
                     });
@@ -583,13 +575,13 @@
         searchInput.addEventListener('input', applySmartSearch);
 
         // ==========================================
-        // ระบบ FACE RECOGNITION SEARCH (ระบบ Live Tracking เหมือน App ธนาคาร)
+        // ระบบ FACE RECOGNITION SEARCH 
         // ==========================================
         let modelsLoaded = false;
         let webcamStream = null;
         let targetFaceDescriptor = null;
         let refinedFaceDescriptor = null;
-        let scanInterval = null; // ตัวแปรสำหรับลูปสแกนใบหน้าสด
+        let scanInterval = null; 
 
         const faceModal = document.getElementById('faceModal');
         const webcam = document.getElementById('webcam');
@@ -635,7 +627,6 @@
             updateModalProgress(10, 'กำลังเชื่อมต่อ AI Vision...');
 
             try {
-                // โหลด TinyFaceDetector สำหรับ Live Tracking ให้ลื่นไหล
                 await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
                 updateModalProgress(35, 'กำลังโหลดโมเดลโครงร่างใบหน้า...');
                 
@@ -668,7 +659,6 @@
             faceModal.classList.add('hidden');
         }
 
-        // เริ่มลูปตรวจจับใบหน้าจากกล้องสด
         async function startFaceDetectionLoop() {
             if (!webcamStream || webcam.paused) return;
             const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
@@ -679,7 +669,6 @@
                 const detection = await faceapi.detectSingleFace(webcam, detectorOptions);
                 
                 if (detection) {
-                    // เปลี่ยนกรอบเป็นสีเขียว แจ้งว่า "จับใบหน้าได้แล้ว"
                     scanRing.classList.replace('border-sky-400/90', 'border-emerald-400');
                     scanRing.classList.replace('shadow-[0_0_25px_rgba(56,189,248,0.5)]', 'shadow-[0_0_25px_rgba(52,211,153,0.6)]');
                     scanLaser.classList.replace('shadow-[0_0_15px_3px_#38bdf8]', 'shadow-[0_0_15px_3px_#34d399]');
@@ -691,7 +680,6 @@
                     captureFaceBtn.disabled = false;
                     captureFaceBtn.classList.add('animate-pulse');
                 } else {
-                    // กลับเป็นสีฟ้าปกติเมื่อใบหน้าหลุดกรอบ
                     scanRing.classList.replace('border-emerald-400', 'border-sky-400/90');
                     scanRing.classList.replace('shadow-[0_0_25px_rgba(52,211,153,0.6)]', 'shadow-[0_0_25px_rgba(56,189,248,0.5)]');
                     scanLaser.classList.replace('shadow-[0_0_15px_3px_#34d399]', 'shadow-[0_0_15px_3px_#38bdf8]');
@@ -703,7 +691,7 @@
                     captureFaceBtn.disabled = true;
                     captureFaceBtn.classList.remove('animate-pulse');
                 }
-            }, 400); // ตรวจทุกๆ 0.4 วินาที
+            }, 400); 
         }
 
         async function toggleCamera() {
@@ -721,9 +709,8 @@
                     
                     bankScanFrame.classList.remove('hidden');
                     camBtnText.innerText = 'ปิดกล้อง';
-                    captureFaceBtn.disabled = true; // ปิดปุ่มไว้ก่อน รอให้ AI จับหน้าได้
+                    captureFaceBtn.disabled = true;
 
-                    // รอให้วิดีโอเล่นภาพก่อนจึงเริ่มลูปสแกน
                     webcam.onloadedmetadata = () => {
                         webcam.play();
                         startFaceDetectionLoop();
@@ -747,7 +734,6 @@
                 bankScanFrame.classList.add('hidden');
                 camBtnText.innerText = 'เปิดกล้องสด';
                 
-                // รีเซ็ตกรอบกลับเป็นสีฟ้าตั้งต้น
                 scanRing.classList.replace('border-emerald-400', 'border-sky-400/90');
                 scanRing.classList.replace('shadow-[0_0_25px_rgba(52,211,153,0.6)]', 'shadow-[0_0_25px_rgba(56,189,248,0.5)]');
                 scanLaser.classList.replace('shadow-[0_0_15px_3px_#34d399]', 'shadow-[0_0_15px_3px_#38bdf8]');
@@ -774,7 +760,7 @@
                 placeholderCamera.classList.add('hidden');
                 
                 bankScanFrame.classList.remove('hidden');
-                scanLaser.classList.add('hidden'); // อัปรูปไม่ต้องมีเลเซอร์วิ่ง
+                scanLaser.classList.add('hidden');
                 
                 captureFaceBtn.disabled = false;
             };
@@ -796,7 +782,6 @@
                 canvas.height = webcam.videoHeight;
                 canvas.getContext('2d').drawImage(webcam, 0, 0, canvas.width, canvas.height);
                 previewSrc = canvas.toDataURL('image/jpeg');
-                // ใช้ SSD MobileNet สำหรับตอนสกัดเวกเตอร์จริงเพื่อให้แม่นที่สุด
                 detection = await faceapi.detectSingleFace(canvas).withFaceLandmarks().withFaceDescriptor();
             } else if (!uploadPreview.classList.contains('hidden')) {
                 previewSrc = uploadPreview.src;
@@ -828,7 +813,7 @@
             candidateList.innerHTML = '';
             candidateMatches = [];
 
-            const STRICT_THRESHOLD = 0.46; // เกณฑ์ความแม่นยำสูง
+            const STRICT_THRESHOLD = 0.46; 
             const imageIndices = mediaItems.map((item, idx) => ({ item, idx })).filter(x => x.item.type === 'image');
 
             let scanned = 0;
@@ -838,7 +823,6 @@
                 scanned++;
                 const percent = Math.round((scanned / imageIndices.length) * 100);
                 
-                // อัปเดต Progress Bar
                 scanProgressBar.style.width = `${percent}%`;
                 scanPercentText.innerText = `${percent}%`;
                 faceScanStats.innerText = `กำลังสแกนรูปที่ ${scanned} จาก ${imageIndices.length} รูป (พบแล้ว ${matchedIndices.length} รูป)...`;
@@ -880,9 +864,7 @@
                     } else {
                         item.faceScore = 0;
                     }
-                } catch (e) {
-                    // ข้ามถ้ารูปโหลดไม่ขึ้น
-                }
+                } catch (e) {}
             }
 
             scanProgressBar.style.width = `100%`;
@@ -941,11 +923,11 @@
         }
 
         // ==========================================
-        // Modal Preview Lightbox (วิดีโอแบบลิงก์ภายนอก)
+        // Modal Preview Lightbox (Native HTML5 Video)
         // ==========================================
         const lightbox = document.getElementById('lightbox');
         const modalImg = document.getElementById('modalImage');
-        const videoPlayOverlay = document.getElementById('videoPlayOverlay');
+        const modalVideoPlayer = document.getElementById('modalVideoPlayer');
         const modalTitle = document.getElementById('modalTitle');
         const modalMeta = document.getElementById('modalMeta');
         const downloadBtn = document.getElementById('downloadBtn');
@@ -960,12 +942,11 @@
 
         function closeModal() {
             lightbox.classList.add('hidden');
+            if (modalVideoPlayer) {
+                modalVideoPlayer.pause();
+                modalVideoPlayer.src = '';
+            }
             document.body.style.overflow = '';
-        }
-
-        function playExternalVideo() {
-            // ส่งไปเปิดแอปภายนอก หรือ Google Drive App ตรงๆ 
-            window.open(currentExternalVideoUrl, '_blank');
         }
 
         function renderModalContent() {
@@ -977,17 +958,19 @@
             downloadBtnMobile.href = item.webViewLink;
 
             if (item.type === 'video') {
-                // สำหรับวิดีโอ: โชว์ภาพนิ่งและปุ่ม Play แบบกำหนดเอง
-                modalImg.classList.remove('hidden');
-                modalImg.src = item.thumb.replace(/=s\d+/, '=s1600');
-                
-                videoPlayOverlay.classList.remove('hidden');
-                currentExternalVideoUrl = item.webViewLink;
+                modalImg.classList.add('hidden');
+                modalVideoPlayer.classList.remove('hidden');
+                // ใช้ alt=media เพื่อดึงสตรีมวิดีโอมาเล่นโดยตรง ข้ามหน้า Login ของ Google Drive
+                modalVideoPlayer.src = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${GOOGLE_API_KEY}`;
+                modalVideoPlayer.load();
+                modalVideoPlayer.play().catch(e => console.log("Auto-play prevented", e));
             } else {
-                // สำหรับรูปภาพ
+                modalVideoPlayer.classList.add('hidden');
+                modalVideoPlayer.pause();
+                modalVideoPlayer.src = '';
+                
                 modalImg.classList.remove('hidden');
                 modalImg.src = item.thumb.replace(/=s\d+/, '=s1600');
-                videoPlayOverlay.classList.add('hidden');
             }
         }
 
@@ -1026,7 +1009,7 @@
             else if (touchEndX - touchStartX > 50) prevItem();
         }, {passive: true});
 
-        // เริ่มโหลดข้อมูลเมื่อเข้าเว็บ
+        // เริ่มโหลดข้อมูล
         fetchAllMedia();
     </script>
 </body>
