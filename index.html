@@ -29,30 +29,38 @@
     <style>
         body { font-family: 'Noto Sans Thai', 'Plus Jakarta Sans', sans-serif; }
         
-        /* สไตล์กรอบสแกนหน้าแบบนีออนวงรี (Bank Style) */
+        /* สไตล์กรอบสแกนหน้าแนวตั้ง */
+        .scanner-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
         .face-scanner-container {
             position: relative;
-            width: 260px;
-            height: 350px;
-            margin: 0 auto;
-            border-radius: 130px;
+            width: 280px; /* ความกว้าง */
+            height: 373px; /* ความสูงอัตราส่วน 3:4 */
+            border-radius: 24px; /* ขอบโค้งมน */
             overflow: hidden;
             box-shadow: 0 10px 40px rgba(12, 135, 235, 0.2);
-            background: #000;
+            background: #0f172a; /* bg-slate-900 */
         }
         
         .face-scanner-ring {
             position: absolute;
             inset: 0;
-            border-radius: 130px;
-            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
             z-index: 10;
             pointer-events: none;
+            transition: all 0.3s ease;
         }
 
         .face-scanner-ring.active {
             border-color: #38bdf8;
-            box-shadow: 0 0 20px rgba(56, 189, 248, 0.5), inset 0 0 20px rgba(56, 189, 248, 0.5);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4), inset 0 0 15px rgba(56, 189, 248, 0.4);
         }
         
         /* เอฟเฟกต์แสงสแกนวิ่งขึ้นลง */
@@ -61,9 +69,9 @@
             top: 0;
             left: 0;
             right: 0;
-            height: 4px;
+            height: 3px;
             background: #38bdf8;
-            box-shadow: 0 0 15px 3px rgba(56, 189, 248, 0.8);
+            box-shadow: 0 0 10px 2px rgba(56, 189, 248, 0.7);
             z-index: 20;
             opacity: 0;
             transform: translateY(0);
@@ -71,15 +79,15 @@
 
         .scanner-beam.scanning {
             opacity: 1;
-            animation: scan-vertical 2s infinite ease-in-out alternate;
+            animation: scan-vertical 2.5s infinite ease-in-out alternate;
         }
 
         @keyframes scan-vertical {
             0% { transform: translateY(0); }
-            100% { transform: translateY(346px); }
+            100% { transform: translateY(370px); } /* วิ่งสุดความสูงคอนเทนเนอร์ */
         }
 
-        /* ตัดขอบวิดีโอให้เป็นรูปวงรี 3:4 */
+        /* ตัดขอบวิดีโอให้พอดีกรอบแนวตั้ง */
         #webcam, #uploadPreview {
             position: absolute;
             top: 50%;
@@ -155,7 +163,7 @@
 
     <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-        <!-- Face Match Status Banner (แถบแสดงสถานะว่ากำลังโชว์รูปสแกนหน้าอยู่) -->
+        <!-- Face Match Status Banner -->
         <div id="faceStatusBanner" class="hidden bg-gradient-to-r from-brand-600 to-sky-600 text-white rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-white/80 shadow bg-slate-900 flex-shrink-0">
@@ -174,7 +182,7 @@
             </button>
         </div>
 
-        <!-- แถบ Candidate Face Picker (ให้ผู้ใช้เลือกใบหน้าที่ใช่เพื่อกรองให้แม่น 100%) -->
+        <!-- แถบ Candidate Face Picker -->
         <div id="candidatePickerArea" class="hidden bg-white rounded-2xl p-4 shadow-[0_4px_20px_rgba(37,99,235,0.06)] border border-blue-100">
             <h4 class="font-bold text-sm text-slate-800 flex items-center gap-1.5 mb-3">
                 <i data-lucide="user-check" class="w-4 h-4 text-brand-500"></i>
@@ -207,9 +215,9 @@
         </div>
     </main>
 
-    <!-- Modal Face Recognition (UI แนวตั้งแบบธนาคาร) -->
+    <!-- Modal Face Recognition (UI แนวตั้ง) -->
     <div id="faceModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex items-center justify-center p-4 sm:p-6">
-        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-6 relative overflow-hidden flex flex-col h-[85vh] sm:h-auto max-h-[800px]">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-6 relative flex flex-col max-h-[90vh]">
             
             <div class="flex items-center justify-between pb-3 border-b border-slate-100 flex-shrink-0">
                 <div class="flex items-center gap-2">
@@ -226,31 +234,33 @@
                 </button>
             </div>
 
-            <!-- กรอบสแกนหน้าแบบแอปธนาคาร -->
-            <div class="flex-1 flex flex-col items-center justify-center min-h-0 relative">
-                <div class="face-scanner-container">
-                    <video id="webcam" autoplay playsinline muted class="hidden"></video>
-                    <img id="uploadPreview" src="" class="hidden" alt="Face Preview">
-                    
-                    <div id="placeholderCamera" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-100 z-0">
-                        <i data-lucide="user" class="w-16 h-16 mb-2 opacity-50"></i>
-                        <p class="text-xs text-center px-4 font-medium">เปิดกล้อง<br>เพื่อเริ่มสแกนใบหน้า</p>
-                    </div>
-
-                    <!-- วงแหวนและแสงเลเซอร์สแกน -->
-                    <div id="cameraFrame" class="face-scanner-ring"></div>
-                    <div id="scannerBeam" class="scanner-beam"></div>
-
-                    <!-- Overlay หน้าโหลด AI โชว์เปอร์เซ็นต์แบบสด -->
-                    <div id="faceLoadingOverlay" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white z-30">
-                        <div class="relative w-16 h-16 flex items-center justify-center mb-3">
-                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                <path class="text-slate-600" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="100, 100" />
-                                <path id="aiLoadProgressRing" class="text-brand-400 transition-all duration-300" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="0, 100" />
-                            </svg>
-                            <span id="aiLoadPercent" class="absolute text-xs font-bold">0%</span>
+            <!-- กรอบสแกนหน้าแนวตั้ง -->
+            <div class="flex-1 min-h-[380px] flex items-center justify-center relative">
+                <div class="scanner-wrapper">
+                    <div class="face-scanner-container">
+                        <video id="webcam" autoplay playsinline muted class="hidden"></video>
+                        <img id="uploadPreview" src="" class="hidden" alt="Face Preview">
+                        
+                        <div id="placeholderCamera" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-100 z-0">
+                            <i data-lucide="user" class="w-16 h-16 mb-2 opacity-50"></i>
+                            <p class="text-xs text-center px-4 font-medium">กดเปิดกล้อง<br>เพื่อเริ่มสแกนใบหน้า</p>
                         </div>
-                        <p id="faceLoadingText" class="text-[11px] font-medium text-blue-100 text-center px-4">กำลังเตรียมระบบ AI...</p>
+
+                        <!-- วงแหวนและแสงเลเซอร์สแกน -->
+                        <div id="cameraFrame" class="face-scanner-ring"></div>
+                        <div id="scannerBeam" class="scanner-beam"></div>
+
+                        <!-- Overlay หน้าโหลด AI โชว์เปอร์เซ็นต์แบบสด -->
+                        <div id="faceLoadingOverlay" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white z-30">
+                            <div class="relative w-16 h-16 flex items-center justify-center mb-3">
+                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                    <path class="text-slate-600" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="100, 100" />
+                                    <path id="aiLoadProgressRing" class="text-brand-400 transition-all duration-300" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="0, 100" />
+                                </svg>
+                                <span id="aiLoadPercent" class="absolute text-xs font-bold">0%</span>
+                            </div>
+                            <p id="faceLoadingText" class="text-[11px] font-medium text-blue-100 text-center px-4">กำลังเตรียมระบบ AI...</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -259,18 +269,18 @@
                 <div class="grid grid-cols-2 gap-2">
                     <button id="startCamBtn" onclick="toggleCamera()" class="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-brand-700 font-semibold text-xs border border-blue-200 transition-all">
                         <i data-lucide="video" class="w-4 h-4"></i>
-                        <span id="camBtnText">เปิดกล้อง</span>
+                        <span id="camBtnText">เปิดกล้องสด</span>
                     </button>
                     
                     <label class="flex items-center justify-center gap-1.5 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs border border-slate-200 cursor-pointer transition-all">
                         <i data-lucide="upload" class="w-4 h-4"></i>
-                        <span>อัปโหลดรูป</span>
+                        <span>อัปโหลดรูปหน้า</span>
                         <input type="file" id="faceFileInput" accept="image/*" class="hidden" onchange="handleFaceUpload(event)">
                     </label>
                 </div>
 
                 <button id="captureFaceBtn" onclick="processFaceSearch()" disabled class="w-full py-3.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm shadow-md shadow-brand-500/20 transition-all">
-                    ยืนยันใบหน้านี้ & ค้นหา
+                    ยืนยันใบหน้านี้ & ค้นหาทันที
                 </button>
             </div>
         </div>
@@ -331,7 +341,7 @@
         let isFaceSearching = false;
         let detectedFolders = [];
         
-        // ตัวแปรเก็บรูปที่แคนดิเดต (เลือกผู้ท้าชิงที่คล้ายสุด)
+        // ตัวแปรเก็บรูปที่แคนดิเดต
         let candidateFaces = []; 
 
         // Element DOM
@@ -440,7 +450,7 @@
                             webViewLink: file.webViewLink,
                             previewUrl: `https://drive.google.com/file/d/${file.id}/preview`,
                             faceScore: 0,
-                            faceDescriptorData: null // ไว้เก็บค่าเวกเตอร์ถ้าเคยสแกนรูปนี้ไปแล้ว
+                            faceDescriptorData: null 
                         });
                     });
 
@@ -765,8 +775,8 @@
             faceStatusBanner.classList.remove('hidden');
             candidatePickerArea.classList.add('hidden'); // ซ่อนตัวเลือกไปก่อน
             
-            // เกณฑ์เข้มงวดขึ้น กันผู้ชายเจอผู้หญิง (ลดค่า Threshold จาก 0.58 เหลือ 0.48)
-            const globalThreshold = 0.48; 
+            // เกณฑ์เข้มงวดขึ้น กันผู้ชายเจอผู้หญิง (ลดค่า Threshold จาก 0.58 เหลือ 0.46)
+            const globalThreshold = 0.46; 
             const imageIndices = mediaItems.map((item, idx) => ({ item, idx })).filter(x => x.item.type === 'image');
             
             let scanned = 0;
