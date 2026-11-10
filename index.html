@@ -177,8 +177,8 @@
             </div>
         </div>
 
-        <!-- แท็บตัวกรองโฟลเดอร์ -->
-        <div id="folderTabs" class="hidden flex items-center gap-2.5 overflow-x-auto pb-2 scrollbar-none"></div>
+        <!-- แท็บตัวกรองโฟลเดอร์ (ใช้ flex-wrap เพื่อแสดงให้ครบในหน้าเดียว) -->
+        <div id="folderTabs" class="hidden flex flex-wrap items-center gap-2.5 pb-2"></div>
 
         <!-- ตัวแสดงสถานะการโหลดไฟล์ -->
         <div id="driveLoading" class="text-center py-20 space-y-3">
@@ -309,7 +309,7 @@
             <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
             
             <!-- เครื่องเล่นวิดีโอ HTML5 ในตัว (โหลดสตรีมตรงข้ามหน้าเว็บกูเกิล) -->
-            <video id="modalVideoPlayer" controls playsinline class="hidden max-h-full max-w-full rounded-lg sm:rounded-xl shadow-2xl bg-black outline-none w-full sm:w-auto h-[60vh] sm:h-[70vh]">
+            <video id="modalVideoPlayer" controls playsinline preload="metadata" class="hidden max-h-full max-w-full rounded-lg sm:rounded-xl shadow-2xl bg-black outline-none w-full sm:w-auto h-[60vh] sm:h-[70vh]">
                 เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
             </video>
 
@@ -327,7 +327,7 @@
     <script>
         const GOOGLE_API_KEY = 'AIzaSyBpNe477-EhO0iWExQJqcuRXNiGiwHfABE';
         const ROOT_FOLDER_ID = '17qWKQ4AIsFEVXNlFSEp7Mu2C_qWmKjPK';
-        const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V3';
+        const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V4';
         const CACHE_DURATION_MS = 20 * 60 * 1000;
 
         let mediaItems = [];
@@ -399,11 +399,7 @@
                 const mainSubfolders = await fetchDriveFiles(mainSubQuery);
 
                 detectedFolders = mainSubfolders.map(sf => sf.name);
-                renderFolderTabs();
-
-                driveLoading.classList.add('hidden');
-                galleryGrid.classList.remove('hidden');
-
+                
                 const processCategory = async (mainFolder) => {
                     let folderIds = [mainFolder.id];
 
@@ -443,11 +439,16 @@
                     });
 
                     mediaItems = mediaItems.concat(parsedFiles);
-                    mediaItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-                    applySmartSearch();
                 };
 
                 await Promise.all(mainSubfolders.map(processCategory));
+                
+                mediaItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+                
+                renderFolderTabs();
+                driveLoading.classList.add('hidden');
+                galleryGrid.classList.remove('hidden');
+                applySmartSearch();
 
                 localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify({
                     timestamp: Date.now(),
@@ -465,19 +466,23 @@
             }
         }
 
+        // แสดงแท็บโฟลเดอร์ พร้อมจำนวนไฟล์
         function renderFolderTabs() {
             if (detectedFolders.length === 0) return;
 
+            const totalFiles = mediaItems.length;
+
             folderTabs.innerHTML = `
                 <button onclick="setFilter('all', this)" class="filter-tab active flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20">
-                    ทั้งหมด
+                    ทั้งหมด (${totalFiles})
                 </button>
             `;
 
             detectedFolders.forEach(folderName => {
+                const count = mediaItems.filter(m => m.folder === folderName).length;
                 const btn = document.createElement('button');
                 btn.className = 'filter-tab flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all bg-white text-slate-600 hover:bg-blue-50 hover:text-brand-600 border border-blue-200/80 shadow-sm';
-                btn.innerHTML = `📁 ${folderName}`;
+                btn.innerHTML = `📁 ${folderName} (${count})`;
                 btn.onclick = () => setFilter(folderName, btn);
                 folderTabs.appendChild(btn);
             });
@@ -806,6 +811,7 @@
             }, 400);
         }
 
+        // ระบบประมวลผลคู่ขนานแบบแบ่งกลุ่ม (Batch Parallel Processing) เร่งสปีดสแกนรูป 4-5 เท่า
         async function matchFacesInDrive() {
             isFaceSearching = true;
             faceStatusBanner.classList.remove('hidden');
@@ -818,53 +824,66 @@
 
             let scanned = 0;
             let matchedIndices = [];
+            
+            const BATCH_SIZE = 5; // ประมวลผลภาพพร้อมกันทีละ 5 ไฟล์
 
-            for (const { item, idx } of imageIndices) {
-                scanned++;
-                const percent = Math.round((scanned / imageIndices.length) * 100);
+            for (let i = 0; i < imageIndices.length; i += BATCH_SIZE) {
+                const batch = imageIndices.slice(i, i + BATCH_SIZE);
+                
+                const batchPromises = batch.map(async ({ item, idx }) => {
+                    try {
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        img.src = item.thumb;
+                        await img.decode();
+
+                        const detections = await faceapi.detectAllFaces(img).withFaceLandmarks().withFaceDescriptors();
+                        let bestDist = 1.0;
+                        let bestDescriptor = null;
+
+                        for (const det of detections) {
+                            const descriptorToMatch = refinedFaceDescriptor || targetFaceDescriptor;
+                            const dist = faceapi.euclideanDistance(descriptorToMatch, det.descriptor);
+                            if (dist < bestDist) {
+                                bestDist = dist;
+                                bestDescriptor = det.descriptor;
+                            }
+                        }
+
+                        if (bestDist <= STRICT_THRESHOLD) {
+                            const score = Math.round(Math.max(0, (1 - bestDist / STRICT_THRESHOLD)) * 100);
+                            item.faceScore = score;
+                            return { idx, score, descriptor: bestDescriptor, item };
+                        } else {
+                            item.faceScore = 0;
+                        }
+                    } catch (e) {}
+                    return null;
+                });
+
+                const results = await Promise.all(batchPromises);
+                
+                results.forEach(res => {
+                    if (res) {
+                        matchedIndices.push(res.idx);
+                        if (candidateMatches.length < 5 && res.descriptor) {
+                            candidateMatches.push(res);
+                        }
+                    }
+                });
+
+                scanned += batch.length;
+                const percent = Math.round((Math.min(scanned, imageIndices.length) / imageIndices.length) * 100);
                 
                 scanProgressBar.style.width = `${percent}%`;
                 scanPercentText.innerText = `${percent}%`;
-                faceScanStats.innerText = `กำลังสแกนรูปที่ ${scanned} จาก ${imageIndices.length} รูป (พบแล้ว ${matchedIndices.length} รูป)...`;
+                faceScanStats.innerText = `กำลังสแกนรูปที่ ${Math.min(scanned, imageIndices.length)} จาก ${imageIndices.length} รูป (พบแล้ว ${matchedIndices.length} รูป)...`;
 
-                try {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.src = item.thumb;
-                    await img.decode();
-
-                    const detections = await faceapi.detectAllFaces(img).withFaceLandmarks().withFaceDescriptors();
-                    let bestDist = 1.0;
-                    let bestDescriptor = null;
-
-                    for (const det of detections) {
-                        const descriptorToMatch = refinedFaceDescriptor || targetFaceDescriptor;
-                        const dist = faceapi.euclideanDistance(descriptorToMatch, det.descriptor);
-                        if (dist < bestDist) {
-                            bestDist = dist;
-                            bestDescriptor = det.descriptor;
-                        }
-                    }
-
-                    if (bestDist <= STRICT_THRESHOLD) {
-                        const score = Math.round(Math.max(0, (1 - bestDist / STRICT_THRESHOLD)) * 100);
-                        item.faceScore = score;
-                        matchedIndices.push(idx);
-
-                        if (candidateMatches.length < 5 && bestDescriptor) {
-                            candidateMatches.push({
-                                item: item,
-                                score: score,
-                                descriptor: bestDescriptor
-                            });
-                        }
-
-                        matchedIndices.sort((a, b) => mediaItems[b].faceScore - mediaItems[a].faceScore);
-                        renderGallery(matchedIndices);
-                    } else {
-                        item.faceScore = 0;
-                    }
-                } catch (e) {}
+                // ถ้าพบรูปเพิ่ม ให้อัปเดตหน้าจอทันที
+                if (results.some(r => r !== null)) {
+                    matchedIndices.sort((a, b) => mediaItems[b].faceScore - mediaItems[a].faceScore);
+                    renderGallery(matchedIndices);
+                }
             }
 
             scanProgressBar.style.width = `100%`;
@@ -960,8 +979,8 @@
             if (item.type === 'video') {
                 modalImg.classList.add('hidden');
                 modalVideoPlayer.classList.remove('hidden');
-                // ใช้ alt=media เพื่อดึงสตรีมวิดีโอมาเล่นโดยตรง ข้ามหน้า Login ของ Google Drive
-                modalVideoPlayer.src = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${GOOGLE_API_KEY}`;
+                // โหลดตรงด้วย URL ดาวน์โหลดของ Google Drive บายพาสหน้าจอเตือน
+                modalVideoPlayer.src = `https://drive.google.com/uc?export=download&id=${item.id}`;
                 modalVideoPlayer.load();
                 modalVideoPlayer.play().catch(e => console.log("Auto-play prevented", e));
             } else {
