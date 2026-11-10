@@ -308,10 +308,8 @@
             <!-- แสดงรูปภาพ -->
             <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
             
-            <!-- เครื่องเล่นวิดีโอ HTML5 ในตัว (โหลดสตรีมตรงข้ามหน้าเว็บกูเกิล) -->
-            <video id="modalVideoPlayer" controls playsinline preload="metadata" class="hidden max-h-full max-w-full rounded-lg sm:rounded-xl shadow-2xl bg-black outline-none w-full sm:w-auto h-[60vh] sm:h-[70vh]">
-                เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
-            </video>
+            <!-- ใช้ iframe ของ Google Drive (จำเป็นสำหรับแปลงไฟล์ .MOV ให้เล่นบนเว็บได้) -->
+            <iframe id="modalVideoFrame" src="" allow="autoplay; fullscreen" allowfullscreen class="hidden w-full max-w-4xl h-[60vh] sm:h-[70vh] rounded-lg sm:rounded-xl shadow-2xl border-0 bg-black"></iframe>
 
             <button onclick="nextItem(event)" class="absolute right-1 sm:right-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                 <i data-lucide="chevron-right" class="w-6 h-6"></i>
@@ -580,373 +578,11 @@
         searchInput.addEventListener('input', applySmartSearch);
 
         // ==========================================
-        // ระบบ FACE RECOGNITION SEARCH 
-        // ==========================================
-        let modelsLoaded = false;
-        let webcamStream = null;
-        let targetFaceDescriptor = null;
-        let refinedFaceDescriptor = null;
-        let scanInterval = null; 
-
-        const faceModal = document.getElementById('faceModal');
-        const webcam = document.getElementById('webcam');
-        const uploadPreview = document.getElementById('uploadPreview');
-        const placeholderCamera = document.getElementById('placeholderCamera');
-        
-        const bankScanFrame = document.getElementById('bankScanFrame');
-        const scanRing = document.getElementById('scanRing');
-        const scanStatusText = document.getElementById('scanStatusText');
-        const scanLaser = document.getElementById('scanLaser');
-        
-        const captureFaceBtn = document.getElementById('captureFaceBtn');
-        const camBtnText = document.getElementById('camBtnText');
-        const faceLoadingOverlay = document.getElementById('faceLoadingOverlay');
-        const faceLoadingText = document.getElementById('faceLoadingText');
-        const modalProgressCircle = document.getElementById('modalProgressCircle');
-        const modalPercentText = document.getElementById('modalPercentText');
-
-        const faceStatusBanner = document.getElementById('faceStatusBanner');
-        const faceQueryPreview = document.getElementById('faceQueryPreview');
-        const faceScanStats = document.getElementById('faceScanStats');
-        const scanStatusTitle = document.getElementById('scanStatusTitle');
-        const scanPercentText = document.getElementById('scanPercentText');
-        const scanProgressBar = document.getElementById('scanProgressBar');
-        
-        const candidatePickerBox = document.getElementById('candidatePickerBox');
-        const candidateList = document.getElementById('candidateList');
-
-        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
-
-        function updateModalProgress(percent, text) {
-            if (percent !== undefined) {
-                modalPercentText.innerText = `${Math.round(percent)}%`;
-                const offset = 264 - (264 * percent) / 100;
-                modalProgressCircle.style.strokeDashoffset = offset;
-            }
-            if (text) faceLoadingText.innerText = text;
-        }
-
-        async function loadFaceModels() {
-            if (modelsLoaded) return true;
-            faceLoadingOverlay.classList.remove('hidden');
-            updateModalProgress(10, 'กำลังเชื่อมต่อ AI Vision...');
-
-            try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                updateModalProgress(35, 'กำลังโหลดโมเดลโครงร่างใบหน้า...');
-                
-                await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
-                updateModalProgress(60, 'กำลังเตรียมโมเดลวิเคราะห์เชิงลึก...');
-                
-                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-                updateModalProgress(85, 'กำลังเปิดระบบตรวจจับความคล้ายคลึง...');
-                
-                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-
-                updateModalProgress(100, 'ระบบพร้อมทำงาน');
-                modelsLoaded = true;
-                setTimeout(() => faceLoadingOverlay.classList.add('hidden'), 500);
-                return true;
-            } catch (err) {
-                alert('ไม่สามารถโหลดโมเดล AI ได้ (ตรวจสอบอินเทอร์เน็ต)');
-                faceLoadingOverlay.classList.add('hidden');
-                return false;
-            }
-        }
-
-        async function openFaceModal() {
-            faceModal.classList.remove('hidden');
-            if (!modelsLoaded) loadFaceModels();
-        }
-
-        function closeFaceModal() {
-            stopCamera();
-            faceModal.classList.add('hidden');
-        }
-
-        async function startFaceDetectionLoop() {
-            if (!webcamStream || webcam.paused) return;
-            const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-            
-            scanInterval = setInterval(async () => {
-                if (webcam.paused || webcam.ended) return;
-                
-                const detection = await faceapi.detectSingleFace(webcam, detectorOptions);
-                
-                if (detection) {
-                    scanRing.classList.replace('border-sky-400/90', 'border-emerald-400');
-                    scanRing.classList.replace('shadow-[0_0_25px_rgba(56,189,248,0.5)]', 'shadow-[0_0_25px_rgba(52,211,153,0.6)]');
-                    scanLaser.classList.replace('shadow-[0_0_15px_3px_#38bdf8]', 'shadow-[0_0_15px_3px_#34d399]');
-                    
-                    scanStatusText.innerText = "จับใบหน้าได้แล้ว พร้อมค้นหา";
-                    scanStatusText.classList.replace('text-sky-200', 'text-emerald-300');
-                    scanStatusText.classList.replace('border-sky-400/30', 'border-emerald-400/40');
-                    
-                    captureFaceBtn.disabled = false;
-                    captureFaceBtn.classList.add('animate-pulse');
-                } else {
-                    scanRing.classList.replace('border-emerald-400', 'border-sky-400/90');
-                    scanRing.classList.replace('shadow-[0_0_25px_rgba(52,211,153,0.6)]', 'shadow-[0_0_25px_rgba(56,189,248,0.5)]');
-                    scanLaser.classList.replace('shadow-[0_0_15px_3px_#34d399]', 'shadow-[0_0_15px_3px_#38bdf8]');
-                    
-                    scanStatusText.innerText = "มองตรงที่กล้องและจัดหน้าให้อยู่ในกรอบ";
-                    scanStatusText.classList.replace('text-emerald-300', 'text-sky-200');
-                    scanStatusText.classList.replace('border-emerald-400/40', 'border-sky-400/30');
-                    
-                    captureFaceBtn.disabled = true;
-                    captureFaceBtn.classList.remove('animate-pulse');
-                }
-            }, 400); 
-        }
-
-        async function toggleCamera() {
-            if (webcamStream) {
-                stopCamera();
-            } else {
-                try {
-                    webcamStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { width: { ideal: 480 }, height: { ideal: 640 }, facingMode: 'user' } 
-                    });
-                    webcam.srcObject = webcamStream;
-                    webcam.classList.remove('hidden');
-                    uploadPreview.classList.add('hidden');
-                    placeholderCamera.classList.add('hidden');
-                    
-                    bankScanFrame.classList.remove('hidden');
-                    camBtnText.innerText = 'ปิดกล้อง';
-                    captureFaceBtn.disabled = true;
-
-                    webcam.onloadedmetadata = () => {
-                        webcam.play();
-                        startFaceDetectionLoop();
-                    };
-                    
-                } catch (e) {
-                    alert('ไม่สามารถเปิดกล้องได้ โปรดอนุญาตสิทธิ์การใช้กล้อง');
-                }
-            }
-        }
-
-        function stopCamera() {
-            if (scanInterval) {
-                clearInterval(scanInterval);
-                scanInterval = null;
-            }
-            if (webcamStream) {
-                webcamStream.getTracks().forEach(track => track.stop());
-                webcamStream = null;
-                webcam.classList.add('hidden');
-                bankScanFrame.classList.add('hidden');
-                camBtnText.innerText = 'เปิดกล้องสด';
-                
-                scanRing.classList.replace('border-emerald-400', 'border-sky-400/90');
-                scanRing.classList.replace('shadow-[0_0_25px_rgba(52,211,153,0.6)]', 'shadow-[0_0_25px_rgba(56,189,248,0.5)]');
-                scanLaser.classList.replace('shadow-[0_0_15px_3px_#34d399]', 'shadow-[0_0_15px_3px_#38bdf8]');
-                scanStatusText.innerText = "มองตรงที่กล้องและจัดหน้าให้อยู่ในกรอบ";
-                scanStatusText.classList.replace('text-emerald-300', 'text-sky-200');
-                scanStatusText.classList.replace('border-emerald-400/40', 'border-sky-400/30');
-                captureFaceBtn.classList.remove('animate-pulse');
-
-                if (uploadPreview.classList.contains('hidden')) {
-                    placeholderCamera.classList.remove('hidden');
-                    captureFaceBtn.disabled = true;
-                }
-            }
-        }
-
-        function handleFaceUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            stopCamera();
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                uploadPreview.src = event.target.result;
-                uploadPreview.classList.remove('hidden');
-                placeholderCamera.classList.add('hidden');
-                
-                bankScanFrame.classList.remove('hidden');
-                scanLaser.classList.add('hidden');
-                
-                captureFaceBtn.disabled = false;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function processFaceSearch() {
-            if(!modelsLoaded) await loadFaceModels();
-            
-            faceLoadingOverlay.classList.remove('hidden');
-            updateModalProgress(40, 'กำลังแยกแยะเวกเตอร์ใบหน้าขั้นสูง...');
-
-            let detection = null;
-            let previewSrc = '';
-
-            if (webcamStream && !webcam.classList.contains('hidden')) {
-                const canvas = document.createElement('canvas');
-                canvas.width = webcam.videoWidth;
-                canvas.height = webcam.videoHeight;
-                canvas.getContext('2d').drawImage(webcam, 0, 0, canvas.width, canvas.height);
-                previewSrc = canvas.toDataURL('image/jpeg');
-                detection = await faceapi.detectSingleFace(canvas).withFaceLandmarks().withFaceDescriptor();
-            } else if (!uploadPreview.classList.contains('hidden')) {
-                previewSrc = uploadPreview.src;
-                detection = await faceapi.detectSingleFace(uploadPreview).withFaceLandmarks().withFaceDescriptor();
-            }
-
-            if (!detection) {
-                faceLoadingOverlay.classList.add('hidden');
-                alert('มองไม่เห็นใบหน้าที่ชัดเจน กรุณาขยับหน้าให้อยู่ในกรอบ หรือเพิ่มแสงสว่าง');
-                return;
-            }
-
-            updateModalProgress(100, 'ประมวลผลสำเร็จ!');
-            targetFaceDescriptor = detection.descriptor;
-            refinedFaceDescriptor = null;
-
-            faceQueryPreview.src = previewSrc;
-            
-            setTimeout(() => {
-                closeFaceModal();
-                matchFacesInDrive();
-            }, 400);
-        }
-
-        // ระบบประมวลผลคู่ขนานแบบแบ่งกลุ่ม (Batch Parallel Processing) เร่งสปีดสแกนรูป 4-5 เท่า
-        async function matchFacesInDrive() {
-            isFaceSearching = true;
-            faceStatusBanner.classList.remove('hidden');
-            candidatePickerBox.classList.add('hidden');
-            candidateList.innerHTML = '';
-            candidateMatches = [];
-
-            const STRICT_THRESHOLD = 0.46; 
-            const imageIndices = mediaItems.map((item, idx) => ({ item, idx })).filter(x => x.item.type === 'image');
-
-            let scanned = 0;
-            let matchedIndices = [];
-            
-            const BATCH_SIZE = 5; // ประมวลผลภาพพร้อมกันทีละ 5 ไฟล์
-
-            for (let i = 0; i < imageIndices.length; i += BATCH_SIZE) {
-                const batch = imageIndices.slice(i, i + BATCH_SIZE);
-                
-                const batchPromises = batch.map(async ({ item, idx }) => {
-                    try {
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.src = item.thumb;
-                        await img.decode();
-
-                        const detections = await faceapi.detectAllFaces(img).withFaceLandmarks().withFaceDescriptors();
-                        let bestDist = 1.0;
-                        let bestDescriptor = null;
-
-                        for (const det of detections) {
-                            const descriptorToMatch = refinedFaceDescriptor || targetFaceDescriptor;
-                            const dist = faceapi.euclideanDistance(descriptorToMatch, det.descriptor);
-                            if (dist < bestDist) {
-                                bestDist = dist;
-                                bestDescriptor = det.descriptor;
-                            }
-                        }
-
-                        if (bestDist <= STRICT_THRESHOLD) {
-                            const score = Math.round(Math.max(0, (1 - bestDist / STRICT_THRESHOLD)) * 100);
-                            item.faceScore = score;
-                            return { idx, score, descriptor: bestDescriptor, item };
-                        } else {
-                            item.faceScore = 0;
-                        }
-                    } catch (e) {}
-                    return null;
-                });
-
-                const results = await Promise.all(batchPromises);
-                
-                results.forEach(res => {
-                    if (res) {
-                        matchedIndices.push(res.idx);
-                        if (candidateMatches.length < 5 && res.descriptor) {
-                            candidateMatches.push(res);
-                        }
-                    }
-                });
-
-                scanned += batch.length;
-                const percent = Math.round((Math.min(scanned, imageIndices.length) / imageIndices.length) * 100);
-                
-                scanProgressBar.style.width = `${percent}%`;
-                scanPercentText.innerText = `${percent}%`;
-                faceScanStats.innerText = `กำลังสแกนรูปที่ ${Math.min(scanned, imageIndices.length)} จาก ${imageIndices.length} รูป (พบแล้ว ${matchedIndices.length} รูป)...`;
-
-                // ถ้าพบรูปเพิ่ม ให้อัปเดตหน้าจอทันที
-                if (results.some(r => r !== null)) {
-                    matchedIndices.sort((a, b) => mediaItems[b].faceScore - mediaItems[a].faceScore);
-                    renderGallery(matchedIndices);
-                }
-            }
-
-            scanProgressBar.style.width = `100%`;
-            scanPercentText.innerText = `100%`;
-            scanStatusTitle.innerText = `การสแกนครบถ้วน 100%`;
-            faceScanStats.innerText = `เสร็จสิ้น! พบรูปที่ตรงกับหน้าของคุณ ${matchedIndices.length} รูป`;
-
-            if (candidateMatches.length > 0 && !refinedFaceDescriptor) {
-                renderCandidatePicker();
-            }
-        }
-
-        function renderCandidatePicker() {
-            candidateList.innerHTML = '';
-            candidateMatches.sort((a, b) => b.score - a.score);
-            
-            candidateMatches.forEach((cand) => {
-                const btn = document.createElement('button');
-                btn.className = 'group relative flex-shrink-0 flex flex-col items-center p-1.5 bg-white/20 hover:bg-white/40 rounded-2xl border-2 border-white/60 transition-all hover:scale-105 active:scale-95';
-                btn.innerHTML = `
-                    <div class="w-16 h-16 rounded-xl overflow-hidden border border-white/50 bg-black">
-                        <img src="${cand.item.thumb}" class="w-full h-full object-cover">
-                    </div>
-                    <span class="mt-1 text-[10px] font-bold text-yellow-300">ความคล้าย ${cand.score}%</span>
-                    <span class="text-[9px] text-white/90 underline">แตะเพื่อยืนยัน</span>
-                `;
-                btn.onclick = () => refineFaceMatch(cand.descriptor, cand.item.thumb);
-                candidateList.appendChild(btn);
-            });
-            candidatePickerBox.classList.remove('hidden');
-        }
-
-        async function refineFaceMatch(confirmedDescriptor, previewThumb) {
-            targetFaceDescriptor = confirmedDescriptor;
-            refinedFaceDescriptor = confirmedDescriptor;
-            
-            faceQueryPreview.src = previewThumb;
-            candidatePickerBox.classList.add('hidden');
-            
-            scanStatusTitle.innerText = 'กำลังประมวลผลตัวตนที่ยืนยันแล้ว...';
-            scanProgressBar.style.width = `0%`;
-            scanPercentText.innerText = `0%`;
-
-            mediaItems.forEach(i => i.faceScore = 0);
-            await matchFacesInDrive(); 
-        }
-
-        function clearFaceSearch() {
-            isFaceSearching = false;
-            targetFaceDescriptor = null;
-            refinedFaceDescriptor = null;
-            faceStatusBanner.classList.add('hidden');
-            candidatePickerBox.classList.add('hidden');
-            mediaItems.forEach(i => i.faceScore = 0);
-            applySmartSearch();
-        }
-
-        // ==========================================
-        // Modal Preview Lightbox (Native HTML5 Video)
+        // Modal Preview Lightbox
         // ==========================================
         const lightbox = document.getElementById('lightbox');
         const modalImg = document.getElementById('modalImage');
-        const modalVideoPlayer = document.getElementById('modalVideoPlayer');
+        const modalVideoFrame = document.getElementById('modalVideoFrame');
         const modalTitle = document.getElementById('modalTitle');
         const modalMeta = document.getElementById('modalMeta');
         const downloadBtn = document.getElementById('downloadBtn');
@@ -961,9 +597,8 @@
 
         function closeModal() {
             lightbox.classList.add('hidden');
-            if (modalVideoPlayer) {
-                modalVideoPlayer.pause();
-                modalVideoPlayer.src = '';
+            if (modalVideoFrame) {
+                modalVideoFrame.src = '';
             }
             document.body.style.overflow = '';
         }
@@ -978,15 +613,12 @@
 
             if (item.type === 'video') {
                 modalImg.classList.add('hidden');
-                modalVideoPlayer.classList.remove('hidden');
-                // โหลดตรงด้วย Google Drive API (alt=media) ทะลุผ่านหน้าเตือนสแกนไวรัสและ Login ได้ 100%
-                modalVideoPlayer.src = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${GOOGLE_API_KEY}`;
-                modalVideoPlayer.load();
-                modalVideoPlayer.play().catch(e => console.log("Auto-play prevented", e));
+                modalVideoFrame.classList.remove('hidden');
+                // ใช้ Preview URL เพื่อให้ Google แปลงไฟล์ .MOV เป็นฟอร์แมตที่เว็บรองรับบนคลาวด์
+                modalVideoFrame.src = item.previewUrl;
             } else {
-                modalVideoPlayer.classList.add('hidden');
-                modalVideoPlayer.pause();
-                modalVideoPlayer.src = '';
+                modalVideoFrame.classList.add('hidden');
+                modalVideoFrame.src = '';
                 
                 modalImg.classList.remove('hidden');
                 modalImg.src = item.thumb.replace(/=s\d+/, '=s1600');
