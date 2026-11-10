@@ -50,7 +50,7 @@
                 </div>
                 <div class="hidden sm:block border-l border-blue-100 pl-3">
                     <h1 class="font-bold text-base leading-tight text-slate-900 tracking-tight">Hana Born To Be Rock</h1>
-                    <p class="text-xs text-brand-600 font-medium">Google Drive Media Hub</p>
+                    <p class="text-xs text-brand-600 font-medium">High Speed Cloud Gallery</p>
                 </div>
             </div>
 
@@ -65,7 +65,7 @@
                 >
             </div>
 
-            <!-- ปุ่มสแกนหน้า และตัวนับจำนวน -->
+            <!-- ปุ่มสแกนหน้า และปุ่มล้างแคช -->
             <div class="flex items-center gap-2">
                 <button 
                     onclick="openFaceModal()" 
@@ -74,6 +74,14 @@
                     <i data-lucide="scan-face" class="w-4 h-4"></i>
                     <span class="hidden sm:inline">สแกนหาหน้าตัวเอง</span>
                     <span class="sm:hidden">สแกนหน้า</span>
+                </button>
+
+                <button 
+                    onclick="forceRefreshData()" 
+                    title="ล้างแคชและโหลดข้อมูลล่าสุดจาก Drive" 
+                    class="p-2 rounded-full bg-white border border-blue-200 hover:bg-blue-50 text-slate-600 shadow-sm transition-all"
+                >
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                 </button>
 
                 <div class="text-xs font-semibold text-brand-700 bg-white px-3.5 py-2 rounded-full border border-blue-200 shadow-sm hidden md:flex items-center gap-1.5">
@@ -111,7 +119,7 @@
         <!-- ตัวแสดงสถานะการโหลด -->
         <div id="driveLoading" class="text-center py-20 space-y-3">
             <div class="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p id="loadingStatusText" class="text-sm font-semibold text-slate-600">กำลังเชื่อมต่อ Google Drive และค้นหาโฟลเดอร์ย่อย...</p>
+            <p id="loadingStatusText" class="text-sm font-semibold text-slate-600">กำลังเตรียมข้อมูลภาพ...</p>
         </div>
 
         <!-- Gallery Grid -->
@@ -224,6 +232,8 @@
     <script>
         const GOOGLE_API_KEY = 'AIzaSyBpNe477-EhO0iWExQJqcuRXNiGiwHfABE';
         const ROOT_FOLDER_ID = '17qWKQ4AIsFEVXNlFSEp7Mu2C_qWmKjPK';
+        const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V1';
+        const CACHE_DURATION_MS = 20 * 60 * 1000; // เก็บแคชในเครื่องผู้ใช้นาน 20 นาที
 
         let mediaItems = [];
         let filteredIndices = [];
@@ -240,7 +250,7 @@
         const imageCounter = document.getElementById('imageCounter');
         const searchInput = document.getElementById('searchInput');
 
-        // ฟังก์ชันเรียก API ดึงข้อมูลไฟล์จาก Google Drive รองรับ Pagination
+        // ฟังก์ชันเรียก API ดึงข้อมูลไฟล์จาก Google Drive
         async function fetchDriveFiles(query) {
             let files = [];
             let pageToken = '';
@@ -262,31 +272,52 @@
             return files;
         }
 
-        // ดึงไฟล์แบบคู่ขนาน (Parallel Fetch) และแสดงผลทันทีแบบ Progressive
+        // ปุ่มบังคับล้างแคชเพื่อดึงข้อมูลใหม่
+        function forceRefreshData() {
+            localStorage.removeItem(CACHE_STORAGE_KEY);
+            location.reload();
+        }
+
+        // โหลดข้อมูลโดยตรวจเช็กจาก Local Cache ก่อน
         async function fetchAllMedia() {
+            const cachedRaw = localStorage.getItem(CACHE_STORAGE_KEY);
+            if (cachedRaw) {
+                try {
+                    const cacheObj = JSON.parse(cachedRaw);
+                    if (Date.now() - cacheObj.timestamp < CACHE_DURATION_MS) {
+                        detectedFolders = cacheObj.folders || [];
+                        mediaItems = cacheObj.files || [];
+                        renderFolderTabs();
+                        driveLoading.classList.add('hidden');
+                        galleryGrid.classList.remove('hidden');
+                        applySmartSearch();
+                        return; // โหลดจากแคชทันที ไม่ต้องยิง Google Drive
+                    }
+                } catch (e) {
+                    localStorage.removeItem(CACHE_STORAGE_KEY);
+                }
+            }
+
+            // ถ้าไม่มีแคช ให้ดึงแบบ Parallel จาก Google Drive
             try {
-                loadingStatusText.innerText = 'กำลังเตรียมโครงสร้างโฟลเดอร์...';
+                loadingStatusText.innerText = 'กำลังเชื่อมต่อและจัดทำแคชความเร็วสูง...';
                 
-                // 1. ดึงโฟลเดอร์หลักชั้นแรก
                 const mainSubQuery = `'${ROOT_FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
                 const mainSubfolders = await fetchDriveFiles(mainSubQuery);
 
                 detectedFolders = mainSubfolders.map(sf => sf.name);
                 renderFolderTabs();
 
-                // ซ่อน loading และเปิดพื้นที่ตารางแสดงรูปทันที
                 driveLoading.classList.add('hidden');
                 galleryGrid.classList.remove('hidden');
 
                 const processCategory = async (mainFolder) => {
                     let folderIds = [mainFolder.id];
 
-                    // ตรวจสอบโฟลเดอร์ย่อยข้างใน (เช่น งานเลี้ยง, กีฬา, Video)
                     const subQuery = `'${mainFolder.id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
                     const subSubFolders = await fetchDriveFiles(subQuery);
                     subSubFolders.forEach(s => folderIds.push(s.id));
 
-                    // ดึงไฟล์จากทุกโฟลเดอร์ย่อยพร้อมกัน
                     const filePromises = folderIds.map(fId => {
                         const q = `'${fId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
                         return fetchDriveFiles(q);
@@ -303,8 +334,8 @@
 
                         const sizeMB = file.size ? (parseInt(file.size) / (1024 * 1024)).toFixed(2) + ' MB' : 'N/A';
                         const thumbUrl = file.thumbnailLink 
-                            ? file.thumbnailLink.replace(/=s\d+/, '=s600') 
-                            : `https://drive.google.com/thumbnail?id=${file.id}&sz=w600`;
+                            ? file.thumbnailLink.replace(/=s\d+/, '=s500') 
+                            : `https://drive.google.com/thumbnail?id=${file.id}&sz=w500`;
 
                         parsedFiles.push({
                             id: file.id,
@@ -319,14 +350,19 @@
                         });
                     });
 
-                    // ใส่รูปเข้าตารางและอัปเดตหน้าจอทันทีเมื่อหมวดนี้โหลดเสร็จ
                     mediaItems = mediaItems.concat(parsedFiles);
                     mediaItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
                     applySmartSearch();
                 };
 
-                // ดึงข้อมูลแต่ละโฟลเดอร์หลักพร้อมกันทุกหมวด
                 await Promise.all(mainSubfolders.map(processCategory));
+
+                // บันทึกผลลัพธ์ลง LocalStorage
+                localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify({
+                    timestamp: Date.now(),
+                    folders: detectedFolders,
+                    files: mediaItems
+                }));
 
             } catch (err) {
                 console.error(err);
@@ -368,7 +404,7 @@
             applySmartSearch();
         }
 
-        // แสดงผลรูปภาพบน Grid
+        // แสดงผลรูปภาพบน Grid พร้อม Lazy Load
         function renderGallery(indices) {
             filteredIndices = indices;
             galleryGrid.innerHTML = '';
@@ -451,7 +487,7 @@
         searchInput.addEventListener('input', applySmartSearch);
 
         // ==========================================
-        // ระบบ FACE RECOGNITION SEARCH (TinyFaceDetector ความเร็วสูง)
+        // ระบบ FACE RECOGNITION SEARCH
         // ==========================================
         let modelsLoaded = false;
         let webcamStream = null;
@@ -705,7 +741,7 @@
             if (e.key === 'ArrowLeft') prevItem();
         });
 
-        // เริ่มโหลดรูปทั้งหมด
+        // เริ่มโหลดข้อมูล
         fetchAllMedia();
     </script>
 </body>
