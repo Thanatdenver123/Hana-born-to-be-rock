@@ -1,1035 +1,626 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hana Born To Be Rock - Smart Face Search Gallery</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        brand: {
-                            50: '#f0f7ff', 100: '#e0effe', 200: '#b9ddfe',
-                            300: '#7cc2fd', 400: '#36a3f9', 500: '#0c87eb',
-                            600: '#006ac9', 700: '#0154a3', 800: '#064786', 900: '#0b3c6f'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Face-API.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Noto Sans Thai', 'Plus Jakarta Sans', sans-serif; }
-        
-        /* สไตล์กรอบสแกนหน้าแนวตั้ง */
-        .scanner-wrapper {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            height: 100%;
-        }
-
-        .face-scanner-container {
-            position: relative;
-            width: 280px; 
-            height: 380px; 
-            border-radius: 24px; 
-            overflow: hidden;
-            box-shadow: 0 10px 40px rgba(12, 135, 235, 0.2);
-            background: #0f172a; 
-        }
-        
-        /* ตัดขอบวิดีโอให้พอดีกรอบแนวตั้ง */
-        #webcam, #uploadPreview {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            min-width: 100%;
-            min-height: 100%;
-            object-fit: cover;
-        }
-
-        /* เลเซอร์วิ่งขึ้นลง */
-        @keyframes scanLaserAnim {
-            0% { top: 10%; }
-            50% { top: 90%; }
-            100% { top: 10%; }
-        }
-        .laser-beam {
-            animation: scanLaserAnim 3s infinite ease-in-out;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hana Born To Be Rock - Smart Face Search Gallery</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{brand:{50:'#f0f7ff',100:'#e0effe',200:'#b9ddfe',300:'#7cc2fd',400:'#36a3f9',500:'#0c87eb',600:'#006ac9',700:'#0154a3',800:'#064786',900:'#0b3c6f'}}}}}
+</script>
+<script src="https://unpkg.com/lucide@0.468.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
+.face-scanner-container{position:relative;width:280px;height:380px;border-radius:24px;overflow:hidden;box-shadow:0 10px 40px rgba(12,135,235,.2);background:#0f172a}
+#webcam,#uploadPreview{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);min-width:100%;min-height:100%;object-fit:cover}
+@keyframes scanLaserAnim{0%{top:10%}50%{top:90%}100%{top:10%}}
+.laser-beam{animation:scanLaserAnim 3s infinite ease-in-out}
+#scanRing.ok{border-color:#34d399;box-shadow:0 0 25px rgba(52,211,153,.6)}
+#scanLaser.ok{box-shadow:0 0 15px 3px #34d399}
+#scanStatusText.ok{color:#6ee7b7;border-color:rgba(52,211,153,.4)}
+.scrollbar-none::-webkit-scrollbar{display:none}
+</style>
 </head>
 <body class="bg-[#f2f8fe] text-slate-800 min-h-screen relative overflow-x-hidden">
 
-    <!-- กราฟิกคลื่นด้านหลัง -->
-    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden opacity-60">
-        <svg class="absolute -top-10 -left-20 w-[600px] h-[600px] text-blue-200/50" viewBox="0 0 500 500" fill="none">
-            <circle cx="150" cy="150" r="280" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" />
-            <circle cx="150" cy="150" r="210" stroke="currentColor" stroke-width="1.8" />
-            <circle cx="150" cy="150" r="140" stroke="currentColor" stroke-width="1.2" />
-        </svg>
+<header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_4px_20px_rgba(37,99,235,0.04)]">
+ <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
+  <div class="flex items-center gap-3">
+   <div class="h-10 px-3.5 bg-brand-600 rounded-xl flex items-center justify-center text-white font-extrabold text-sm tracking-wider shadow-md shadow-blue-300">HANA</div>
+   <div class="hidden sm:block border-l border-blue-100 pl-3">
+    <h1 class="font-bold text-base leading-tight text-slate-900 tracking-tight">Hana Born To Be Rock</h1>
+    <p class="text-xs text-brand-600 font-medium">Smart Face Search Gallery</p>
+   </div>
+  </div>
+  <div class="flex-1 max-w-sm relative">
+   <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-400"></i>
+   <input type="text" id="searchInput" placeholder="ค้นหาชื่อไฟล์ หรือหมวดหมู่..." class="w-full pl-10 pr-4 py-2 text-sm bg-white/95 border border-blue-200/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all shadow-sm">
+  </div>
+  <div class="flex items-center gap-2">
+   <button onclick="openFaceModal()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs sm:text-sm font-semibold shadow-md shadow-blue-500/20 transition-all hover:scale-105 active:scale-95">
+    <i data-lucide="scan-face" class="w-4 h-4"></i>
+    <span class="hidden sm:inline">สแกนหาหน้าตัวเอง</span><span class="sm:hidden">สแกนหน้า</span>
+   </button>
+   <button onclick="forceRefreshData()" title="โหลดข้อมูลล่าสุดจาก Drive" class="p-2 rounded-full bg-white border border-blue-200 hover:bg-blue-50 text-slate-600 shadow-sm transition-all">
+    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+   </button>
+   <div class="text-xs font-semibold text-brand-700 bg-white px-3.5 py-2 rounded-full border border-blue-200 shadow-sm hidden md:flex items-center gap-1.5">
+    <i data-lucide="images" class="w-3.5 h-3.5 text-brand-500"></i>
+    <span id="imageCounter" class="text-brand-900 font-bold">0</span> ไฟล์
+   </div>
+  </div>
+ </div>
+</header>
+
+<main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+ <div id="faceStatusBanner" class="hidden bg-gradient-to-br from-brand-600 via-blue-600 to-sky-600 text-white rounded-3xl p-5 shadow-xl space-y-4">
+  <div class="flex items-center justify-between gap-3">
+   <div class="flex items-center gap-3">
+    <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-white shadow bg-slate-900 flex-shrink-0"><img id="faceQueryPreview" src="" alt="Target Face" class="w-full h-full object-cover"></div>
+    <div>
+     <h4 class="font-bold text-sm sm:text-base flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-yellow-300"></i>ระบบค้นหาใบหน้าอัจฉริยะ</h4>
+     <p id="faceScanStats" class="text-xs text-blue-100">กำลังสแกนรูปภาพ...</p>
     </div>
+   </div>
+   <button onclick="clearFaceSearch()" class="px-3.5 py-2 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold border border-white/40 transition-all flex-shrink-0">ยกเลิกสแกนหน้า</button>
+  </div>
+  <div id="faceProgressContainer" class="space-y-1.5">
+   <div class="flex justify-between items-center text-xs font-semibold text-blue-100">
+    <span id="scanStatusTitle">กำลังตรวจวิเคราะห์ใบหน้าในคลังภาพ...</span>
+    <span id="scanPercentText" class="text-yellow-300 font-bold">0%</span>
+   </div>
+   <div class="w-full h-3 bg-white/20 rounded-full overflow-hidden p-0.5">
+    <div id="scanProgressBar" class="h-full bg-gradient-to-r from-yellow-300 to-emerald-400 rounded-full transition-all duration-300" style="width:0%"></div>
+   </div>
+  </div>
+  <div id="candidatePickerBox" class="hidden pt-3 border-t border-white/20 space-y-2.5">
+   <p class="text-xs font-bold text-yellow-200 flex items-center gap-1.5"><i data-lucide="user-check" class="w-4 h-4 text-yellow-300"></i>แตะเลือก "รูปหน้าของคุณที่ถูกต้องที่สุด" เพื่อความแม่นยำสูงสุด</p>
+   <div id="candidateList" class="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none"></div>
+  </div>
+ </div>
 
-    <!-- Header Navigation -->
-    <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-blue-100 shadow-[0_4px_20px_rgba(37,99,235,0.04)]">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3">
-                <div class="h-10 px-3.5 bg-brand-600 rounded-xl flex items-center justify-center text-white font-extrabold text-sm tracking-wider shadow-md shadow-blue-300">
-                    HANA
-                </div>
-                <div class="hidden sm:block border-l border-blue-100 pl-3">
-                    <h1 class="font-bold text-base leading-tight text-slate-900 tracking-tight">Hana Born To Be Rock</h1>
-                    <p class="text-xs text-brand-600 font-medium">Smart Face Search Gallery</p>
-                </div>
-            </div>
+ <div id="folderTabs" class="hidden flex flex-wrap items-center gap-2.5 pb-2"></div>
 
-            <!-- ช่องค้นหาอัจฉริยะ -->
-            <div class="flex-1 max-w-sm relative">
-                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-400"></i>
-                <input 
-                    type="text" 
-                    id="searchInput" 
-                    placeholder="ค้นหาชื่อไฟล์ หรือหมวดหมู่..." 
-                    class="w-full pl-10 pr-4 py-2 text-sm bg-white/95 border border-blue-200/80 rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all shadow-sm"
-                >
-            </div>
+ <div id="driveLoading" class="text-center py-20 space-y-3">
+  <div class="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+  <p id="loadingStatusText" class="text-sm font-semibold text-slate-600">กำลังเตรียมข้อมูลภาพ...</p>
+ </div>
 
-            <!-- ปุ่มสแกนหน้า และปุ่มล้างแคช -->
-            <div class="flex items-center gap-2">
-                <button 
-                    onclick="openFaceModal()" 
-                    class="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 text-white text-xs sm:text-sm font-semibold shadow-md shadow-blue-500/20 transition-all hover:scale-105 active:scale-95"
-                >
-                    <i data-lucide="scan-face" class="w-4 h-4"></i>
-                    <span class="hidden sm:inline">สแกนหาหน้าตัวเอง</span>
-                    <span class="sm:hidden">สแกนหน้า</span>
-                </button>
+ <div id="galleryGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5"></div>
+ <div id="gallerySentinel" class="h-4"></div>
 
-                <button 
-                    onclick="forceRefreshData()" 
-                    title="ล้างแคชและโหลดข้อมูลล่าสุดจาก Drive" 
-                    class="p-2 rounded-full bg-white border border-blue-200 hover:bg-blue-50 text-slate-600 shadow-sm transition-all"
-                >
-                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                </button>
+ <div id="noResults" class="hidden text-center py-20 bg-white rounded-3xl border border-blue-100 shadow-sm">
+  <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-brand-500 mb-4 border border-blue-100"><i data-lucide="search-x" class="w-8 h-8"></i></div>
+  <h3 class="text-slate-800 font-bold text-lg">ไม่พบไฟล์ที่คุณค้นหา</h3>
+  <p class="text-slate-400 text-sm mt-1">ลองเปลี่ยนคำค้นหา หรือสแกนหน้าใหม่อีกครั้ง</p>
+ </div>
+</main>
 
-                <div class="text-xs font-semibold text-brand-700 bg-white px-3.5 py-2 rounded-full border border-blue-200 shadow-sm hidden md:flex items-center gap-1.5">
-                    <i data-lucide="images" class="w-3.5 h-3.5 text-brand-500"></i>
-                    <span id="imageCounter" class="text-brand-900 font-bold">0</span> ไฟล์
-                </div>
-            </div>
-        </div>
-    </header>
+<!-- Face modal -->
+<div id="faceModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
+ <div class="bg-white rounded-[32px] max-w-sm w-full p-6 shadow-2xl border border-blue-100 space-y-5 relative">
+  <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+   <div class="flex items-center gap-2">
+    <div class="w-9 h-9 rounded-xl bg-blue-50 text-brand-600 flex items-center justify-center"><i data-lucide="scan-face" class="w-5 h-5"></i></div>
+    <div><h3 class="font-bold text-slate-800 text-sm">สแกนใบหน้า</h3><p class="text-[11px] text-slate-400">จัดหน้าให้อยู่ในกรอบ</p></div>
+   </div>
+   <button onclick="closeFaceModal()" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+  </div>
 
-    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-
-        <!-- Face Match Status Banner -->
-        <div id="faceStatusBanner" class="hidden bg-gradient-to-br from-brand-600 via-blue-600 to-sky-600 text-white rounded-3xl p-5 shadow-xl space-y-4">
-            <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3">
-                    <div class="w-14 h-14 rounded-full overflow-hidden border-2 border-white shadow bg-slate-900 flex-shrink-0">
-                        <img id="faceQueryPreview" src="" alt="Target Face" class="w-full h-full object-cover">
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-sm sm:text-base flex items-center gap-2">
-                            <i data-lucide="sparkles" class="w-4 h-4 text-yellow-300"></i>
-                            ระบบค้นหาใบหน้าอัจฉริยะ
-                        </h4>
-                        <p id="faceScanStats" class="text-xs text-blue-100">กำลังสแกนรูปภาพ...</p>
-                    </div>
-                </div>
-                <button onclick="clearFaceSearch()" class="px-3.5 py-2 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold border border-white/40 transition-all flex-shrink-0">
-                    ยกเลิกสแกนหน้า
-                </button>
-            </div>
-
-            <!-- แถบ Progress Bar บอกความคืบหน้า -->
-            <div id="faceProgressContainer" class="space-y-1.5">
-                <div class="flex justify-between items-center text-xs font-semibold text-blue-100">
-                    <span id="scanStatusTitle">กำลังตรวจวิเคราะห์ใบหน้าในคลังภาพ...</span>
-                    <span id="scanPercentText" class="text-yellow-300 font-bold">0%</span>
-                </div>
-                <div class="w-full h-3 bg-white/20 rounded-full overflow-hidden p-0.5">
-                    <div id="scanProgressBar" class="h-full bg-gradient-to-r from-yellow-300 to-emerald-400 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <!-- กล่องแนะนำ "เลือกหน้าที่ใช่ตัวคุณเพื่อยืนยัน" -->
-            <div id="candidatePickerBox" class="hidden pt-3 border-t border-white/20 space-y-2.5">
-                <p class="text-xs font-bold text-yellow-200 flex items-center gap-1.5">
-                    <i data-lucide="user-check" class="w-4 h-4 text-yellow-300"></i>
-                    แตะเลือก "รูปหน้าของคุณที่ถูกต้องที่สุด" เพื่อความแม่นยำ 100%
-                </p>
-                <div id="candidateList" class="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
-                    <!-- รายการรูปตัวอย่างจะถูกแทรกที่นี่ -->
-                </div>
-            </div>
-        </div>
-
-        <!-- แท็บตัวกรองโฟลเดอร์ (ใช้ flex-wrap เพื่อแสดงให้ครบในหน้าเดียว) -->
-        <div id="folderTabs" class="hidden flex flex-wrap items-center gap-2.5 pb-2"></div>
-
-        <!-- ตัวแสดงสถานะการโหลดไฟล์ -->
-        <div id="driveLoading" class="text-center py-20 space-y-3">
-            <div class="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p id="loadingStatusText" class="text-sm font-semibold text-slate-600">กำลังเตรียมข้อมูลภาพ...</p>
-        </div>
-
-        <!-- Gallery Grid -->
-        <div id="galleryGrid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5"></div>
-
-        <!-- แจ้งเตือนเมื่อค้นหาไม่พบ -->
-        <div id="noResults" class="hidden text-center py-20 bg-white rounded-3xl border border-blue-100 shadow-sm">
-            <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-brand-500 mb-4 border border-blue-100">
-                <i data-lucide="search-x" class="w-8 h-8"></i>
-            </div>
-            <h3 class="text-slate-800 font-bold text-lg">ไม่พบไฟล์ที่คุณค้นหา</h3>
-            <p class="text-slate-400 text-sm mt-1">ลองเปลี่ยนคำค้นหา หรือสแกนหน้าใหม่อีกครั้ง</p>
-        </div>
-    </main>
-
-    <!-- Modal Face Recognition (แนวตั้งสไตล์แอปธนาคาร พร้อม Live Tracking) -->
-    <div id="faceModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-[32px] max-w-sm w-full p-6 shadow-2xl border border-blue-100 space-y-5 relative">
-            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
-                <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-xl bg-blue-50 text-brand-600 flex items-center justify-center">
-                        <i data-lucide="scan-face" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-slate-800 text-sm">สแกนใบหน้า</h3>
-                        <p class="text-[11px] text-slate-400">จัดหน้าให้อยู่ในกรอบ</p>
-                    </div>
-                </div>
-                <button onclick="closeFaceModal()" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-
-            <!-- กล้องแนวตั้งแบบแอปธนาคาร -->
-            <div class="flex-1 min-h-[380px] flex items-center justify-center relative">
-                <div class="scanner-wrapper">
-                    <div class="face-scanner-container">
-                        <video id="webcam" playsinline muted class="hidden"></video>
-                        <img id="uploadPreview" src="" class="hidden" alt="Face Preview">
-                        
-                        <div id="placeholderCamera" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-100 z-0">
-                            <i data-lucide="user" class="w-14 h-14 mx-auto text-slate-600"></i>
-                            <p class="text-xs text-center px-4 font-medium mt-2">กดเปิดกล้อง<br>เพื่อเริ่มสแกนใบหน้า</p>
-                        </div>
-
-                        <!-- กรอบวงรีสแกนใบหน้า (Bank-style Scanner Frame) -->
-                        <div id="bankScanFrame" class="hidden absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-4 z-10 transition-colors duration-300">
-                            <div id="scanRing" class="relative w-52 h-[280px] rounded-[100px] border-[5px] border-sky-400/90 shadow-[0_0_25px_rgba(56,189,248,0.5)] flex items-center justify-center overflow-hidden transition-colors duration-300">
-                                <!-- ลำแสงเลเซอร์ -->
-                                <div id="scanLaser" class="absolute inset-x-0 h-1 bg-white shadow-[0_0_15px_3px_#38bdf8] laser-beam opacity-80"></div>
-                            </div>
-                            <span id="scanStatusText" class="mt-4 px-4 py-1.5 bg-slate-900/80 backdrop-blur-md rounded-full text-xs text-sky-200 font-medium border border-sky-400/30 transition-colors duration-300">
-                                มองตรงที่กล้องและจัดหน้าให้อยู่ในกรอบ
-                            </span>
-                        </div>
-
-                        <!-- วงแหวนสีบอกสถานะความคืบหน้าตอนโหลด AI -->
-                        <div id="faceLoadingOverlay" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center text-white space-y-4 p-4 text-center z-30">
-                            <div class="relative w-24 h-24 flex items-center justify-center">
-                                <svg class="w-full h-full circle-progress" viewBox="0 0 100 100">
-                                    <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"/>
-                                    <circle id="modalProgressCircle" cx="50" cy="50" r="42" stroke="#38bdf8" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" fill="none" class="transition-all duration-300"/>
-                                </svg>
-                                <span id="modalPercentText" class="absolute text-lg font-black text-cyan-300">0%</span>
-                            </div>
-                            <div>
-                                <p id="faceLoadingText" class="text-sm font-bold text-white">กำลังเตรียมระบบ AI...</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ปุ่มคำสั่ง -->
-            <div class="space-y-2.5">
-                <div class="grid grid-cols-2 gap-2.5">
-                    <button id="startCamBtn" onclick="toggleCamera()" class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-blue-50 hover:bg-blue-100 text-brand-700 font-bold text-xs border border-blue-200 transition-all">
-                        <i data-lucide="video" class="w-4 h-4"></i>
-                        <span id="camBtnText">เปิดกล้องสด</span>
-                    </button>
-                    
-                    <label class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 cursor-pointer transition-all">
-                        <i data-lucide="upload" class="w-4 h-4"></i>
-                        <span>อัปโหลดรูป</span>
-                        <input type="file" id="faceFileInput" accept="image/*" class="hidden" onchange="handleFaceUpload(event)">
-                    </label>
-                </div>
-
-                <button id="captureFaceBtn" onclick="processFaceSearch()" disabled class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm shadow-lg shadow-blue-500/25 transition-all">
-                    ยืนยันใบหน้านี้ & ค้นหาทันที
-                </button>
-            </div>
-        </div>
+  <div class="min-h-[380px] flex items-center justify-center relative">
+   <div class="face-scanner-container">
+    <video id="webcam" playsinline muted class="hidden"></video>
+    <img id="uploadPreview" src="" class="hidden" alt="Face Preview">
+    <div id="placeholderCamera" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-100 z-0">
+     <i data-lucide="user" class="w-14 h-14 mx-auto text-slate-600"></i>
+     <p class="text-xs text-center px-4 font-medium mt-2">กดเปิดกล้อง<br>เพื่อเริ่มสแกนใบหน้า</p>
     </div>
-
-    <!-- Lightbox Modal สำหรับดูรูปและวิดีโอ (ใช้ Native Video Player) -->
-    <div id="lightbox" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl hidden flex flex-col justify-between p-2 sm:p-4 select-none">
-        <div class="flex items-center justify-between text-white max-w-7xl w-full mx-auto pb-2 border-b border-white/10 mt-2 sm:mt-0">
-            <div class="text-sm overflow-hidden pr-2">
-                <p id="modalTitle" class="font-bold text-white truncate max-w-xs sm:max-w-md"></p>
-                <p id="modalMeta" class="text-[10px] sm:text-xs text-blue-200 truncate"></p>
-            </div>
-            <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                <a id="downloadBtn" href="#" target="_blank" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-medium transition-all shadow-md">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>ดาวน์โหลด</span>
-                </a>
-                <a id="downloadBtnMobile" href="#" target="_blank" class="sm:hidden p-2 bg-brand-600 rounded-lg text-white">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                </a>
-                <button onclick="closeModal()" class="p-2 hover:bg-white/10 rounded-lg text-white/80 hover:text-white">
-                    <i data-lucide="x" class="w-5 h-5 sm:w-6 sm:h-6"></i>
-                </button>
-            </div>
-        </div>
-
-        <div class="relative flex-1 flex items-center justify-center my-2 sm:my-4 overflow-hidden group">
-            <button onclick="prevItem(event)" class="absolute left-1 sm:left-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                <i data-lucide="chevron-left" class="w-6 h-6"></i>
-            </button>
-
-            <!-- แสดงรูปภาพ -->
-            <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
-            
-            <!-- เครื่องเล่นวิดีโอ HTML5 ในตัว (โหลดสตรีมตรงข้ามหน้าเว็บกูเกิล) -->
-            <video id="modalVideoPlayer" controls playsinline preload="metadata" class="hidden max-h-full max-w-full rounded-lg sm:rounded-xl shadow-2xl bg-black outline-none w-full sm:w-auto h-[60vh] sm:h-[70vh]">
-                เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
-            </video>
-
-            <button onclick="nextItem(event)" class="absolute right-1 sm:right-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                <i data-lucide="chevron-right" class="w-6 h-6"></i>
-            </button>
-        </div>
-
-        <div class="text-center text-[10px] sm:text-xs text-slate-400 mb-2 sm:mb-0">
-            ปัดซ้าย-ขวา หรือกดลูกศรบนคีย์บอร์ดเพื่อเปลี่ยนรูป
-        </div>
+    <div id="bankScanFrame" class="hidden absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-4 z-10">
+     <div id="scanRing" class="relative w-52 h-[280px] rounded-[100px] border-[5px] border-sky-400/90 shadow-[0_0_25px_rgba(56,189,248,0.5)] flex items-center justify-center overflow-hidden transition-colors duration-300">
+      <div id="scanLaser" class="absolute inset-x-0 h-1 bg-white shadow-[0_0_15px_3px_#38bdf8] laser-beam opacity-80"></div>
+     </div>
+     <span id="scanStatusText" class="mt-4 px-4 py-1.5 bg-slate-900/80 backdrop-blur-md rounded-full text-xs text-sky-200 font-medium border border-sky-400/30">มองตรงที่กล้องและจัดหน้าให้อยู่ในกรอบ</span>
     </div>
-
-    <!-- Javascript โค้ดระบบหลักทั้งหมด -->
-    <script>
-        const GOOGLE_API_KEY = 'AIzaSyBpNe477-EhO0iWExQJqcuRXNiGiwHfABE';
-        const ROOT_FOLDER_ID = '17qWKQ4AIsFEVXNlFSEp7Mu2C_qWmKjPK';
-        const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V4';
-        const CACHE_DURATION_MS = 20 * 60 * 1000;
-
-        let mediaItems = [];
-        let filteredIndices = [];
-        let currentIndex = 0;
-        let activeFilter = 'all';
-        let isFaceSearching = false;
-        let detectedFolders = [];
-        let candidateMatches = []; 
-
-        const galleryGrid = document.getElementById('galleryGrid');
-        const folderTabs = document.getElementById('folderTabs');
-        const driveLoading = document.getElementById('driveLoading');
-        const loadingStatusText = document.getElementById('loadingStatusText');
-        const noResults = document.getElementById('noResults');
-        const imageCounter = document.getElementById('imageCounter');
-        const searchInput = document.getElementById('searchInput');
-
-        // ฟังก์ชันเรียก API ดึงข้อมูลไฟล์จาก Google Drive
-        async function fetchDriveFiles(query) {
-            let files = [];
-            let pageToken = '';
-            do {
-                const fields = 'nextPageToken, files(id, name, mimeType, size, webViewLink, thumbnailLink)';
-                let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&key=${GOOGLE_API_KEY}`;
-                if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
-
-                const res = await fetch(url);
-                if (!res.ok) {
-                    const errJson = await res.json().catch(() => ({}));
-                    throw new Error(errJson.error ? errJson.error.message : `HTTP ${res.status}`);
-                }
-                const data = await res.json();
-                if (data.files) files = files.concat(data.files);
-                pageToken = data.nextPageToken || '';
-            } while (pageToken);
-
-            return files;
-        }
-
-        function forceRefreshData() {
-            localStorage.removeItem(CACHE_STORAGE_KEY);
-            location.reload();
-        }
-
-        async function fetchAllMedia() {
-            const cachedRaw = localStorage.getItem(CACHE_STORAGE_KEY);
-            if (cachedRaw) {
-                try {
-                    const cacheObj = JSON.parse(cachedRaw);
-                    if (Date.now() - cacheObj.timestamp < CACHE_DURATION_MS) {
-                        detectedFolders = cacheObj.folders || [];
-                        mediaItems = cacheObj.files || [];
-                        renderFolderTabs();
-                        driveLoading.classList.add('hidden');
-                        galleryGrid.classList.remove('hidden');
-                        applySmartSearch();
-                        return;
-                    }
-                } catch (e) {
-                    localStorage.removeItem(CACHE_STORAGE_KEY);
-                }
-            }
-
-            try {
-                loadingStatusText.innerText = 'กำลังเชื่อมต่อและจัดทำแคชความเร็วสูง...';
-                
-                const mainSubQuery = `'${ROOT_FOLDER_ID}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-                const mainSubfolders = await fetchDriveFiles(mainSubQuery);
-
-                detectedFolders = mainSubfolders.map(sf => sf.name);
-                
-                const processCategory = async (mainFolder) => {
-                    let folderIds = [mainFolder.id];
-
-                    const subQuery = `'${mainFolder.id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-                    const subSubFolders = await fetchDriveFiles(subQuery);
-                    subSubFolders.forEach(s => folderIds.push(s.id));
-
-                    const filePromises = folderIds.map(fId => {
-                        const q = `'${fId}' in parents and mimeType != 'application/vnd.google-apps.folder' and trashed = false`;
-                        return fetchDriveFiles(q);
-                    });
-
-                    const results = await Promise.all(filePromises);
-                    const flatFiles = results.flat();
-
-                    const parsedFiles = [];
-                    flatFiles.forEach(file => {
-                        const isImg = file.mimeType.startsWith('image/');
-                        const isVid = file.mimeType.startsWith('video/');
-                        if (!isImg && !isVid) return;
-
-                        const sizeMB = file.size ? (parseInt(file.size) / (1024 * 1024)).toFixed(2) + ' MB' : 'N/A';
-                        const thumbUrl = file.thumbnailLink 
-                            ? file.thumbnailLink.replace(/=s\d+/, '=s500') 
-                            : `https://drive.google.com/thumbnail?id=${file.id}&sz=w500`;
-
-                        parsedFiles.push({
-                            id: file.id,
-                            name: file.name,
-                            folder: mainFolder.name,
-                            type: isVid ? 'video' : 'image',
-                            size: sizeMB,
-                            thumb: thumbUrl,
-                            webViewLink: file.webViewLink,
-                            faceScore: 0
-                        });
-                    });
-
-                    mediaItems = mediaItems.concat(parsedFiles);
-                };
-
-                await Promise.all(mainSubfolders.map(processCategory));
-                
-                mediaItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
-                
-                renderFolderTabs();
-                driveLoading.classList.add('hidden');
-                galleryGrid.classList.remove('hidden');
-                applySmartSearch();
-
-                localStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify({
-                    timestamp: Date.now(),
-                    folders: detectedFolders,
-                    files: mediaItems
-                }));
-
-            } catch (err) {
-                console.error(err);
-                driveLoading.innerHTML = `
-                    <div class="p-6 bg-rose-50 text-rose-800 rounded-2xl max-w-lg mx-auto border border-rose-200">
-                        <p class="font-bold text-base mb-1">เกิดข้อผิดพลาดในการโหลดข้อมูล</p>
-                        <p class="text-xs">${err.message}</p>
-                    </div>`;
-            }
-        }
-
-        // แสดงแท็บโฟลเดอร์ พร้อมจำนวนไฟล์
-        function renderFolderTabs() {
-            if (detectedFolders.length === 0) return;
-
-            const totalFiles = mediaItems.length;
-
-            folderTabs.innerHTML = `
-                <button onclick="setFilter('all', this)" class="filter-tab active flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20">
-                    ทั้งหมด (${totalFiles})
-                </button>
-            `;
-
-            detectedFolders.forEach(folderName => {
-                const count = mediaItems.filter(m => m.folder === folderName).length;
-                const btn = document.createElement('button');
-                btn.className = 'filter-tab flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all bg-white text-slate-600 hover:bg-blue-50 hover:text-brand-600 border border-blue-200/80 shadow-sm';
-                btn.innerHTML = `📁 ${folderName} (${count})`;
-                btn.onclick = () => setFilter(folderName, btn);
-                folderTabs.appendChild(btn);
-            });
-
-            folderTabs.classList.remove('hidden');
-        }
-
-        function setFilter(folder, btnElement) {
-            activeFilter = folder;
-            document.querySelectorAll('.filter-tab').forEach(b => {
-                b.className = 'filter-tab flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all bg-white text-slate-600 hover:bg-blue-50 hover:text-brand-600 border border-blue-200/80 shadow-sm';
-            });
-            btnElement.className = 'filter-tab active flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20';
-            applySmartSearch();
-        }
-
-        function renderGallery(indices) {
-            filteredIndices = indices;
-            galleryGrid.innerHTML = '';
-            imageCounter.innerText = indices.length;
-
-            if (indices.length === 0) {
-                noResults.classList.remove('hidden');
-                return;
-            }
-            noResults.classList.add('hidden');
-
-            indices.forEach(idx => {
-                const item = mediaItems[idx];
-                const card = document.createElement('div');
-                card.className = 'group relative bg-white rounded-2xl overflow-hidden border border-blue-100 shadow-[0_4px_16px_rgba(37,99,235,0.04)] hover:shadow-[0_12px_28px_rgba(37,99,235,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer';
-                card.onclick = () => openModal(idx);
-
-                let badgeHtml = '';
-                if (isFaceSearching && item.faceScore > 0) {
-                    badgeHtml = `<span class="absolute top-2 left-2 z-10 px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold shadow-md">ตรงกัน ${item.faceScore}%</span>`;
-                }
-
-                card.innerHTML = `
-                    <div class="px-3 py-2 bg-white/95 border-b border-blue-50 flex items-center justify-between text-[11px] font-medium text-slate-600">
-                        <span class="truncate text-brand-600 font-semibold" title="${item.name}">${item.name}</span>
-                        <span class="text-[10px] text-slate-400 font-normal ml-2 flex-shrink-0">${item.size}</span>
-                    </div>
-                    <div class="aspect-square w-full bg-slate-100 overflow-hidden relative">
-                        ${badgeHtml}
-                        ${item.type === 'video' ? `
-                            <img src="${item.thumb}" class="w-full h-full object-cover" loading="lazy">
-                            <div class="absolute inset-0 bg-slate-900/30 flex items-center justify-center">
-                                <span class="w-10 h-10 rounded-full bg-white/90 text-brand-600 flex items-center justify-center shadow-lg">
-                                    <i data-lucide="play" class="w-5 h-5 fill-current ml-0.5"></i>
-                                </span>
-                            </div>
-                            <span class="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-brand-600/90 text-white text-[10px] font-bold uppercase">VIDEO</span>
-                        ` : `
-                            <img src="${item.thumb}" alt="${item.name}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                            <div class="absolute inset-0 bg-blue-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <span class="p-2.5 bg-white/95 rounded-full text-brand-600 shadow-md">
-                                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
-                                </span>
-                            </div>
-                        `}
-                    </div>
-                `;
-                galleryGrid.appendChild(card);
-            });
-            lucide.createIcons();
-        }
-
-        function applySmartSearch() {
-            const rawQuery = searchInput.value.toLowerCase().trim();
-            const tokens = rawQuery.split(/\s+/).filter(Boolean);
-
-            let results = [];
-            mediaItems.forEach((item, index) => {
-                const matchesFolder = (activeFilter === 'all' || item.folder === activeFilter);
-                if (!matchesFolder) return;
-
-                if (tokens.length === 0) {
-                    results.push(index);
-                    return;
-                }
-
-                const searchableText = `${item.name} ${item.folder}`.toLowerCase();
-                const allMatch = tokens.every(token => searchableText.includes(token));
-                if (allMatch) results.push(index);
-            });
-
-            if (isFaceSearching) {
-                results = results.filter(idx => mediaItems[idx].faceScore > 0);
-                results.sort((a, b) => mediaItems[b].faceScore - mediaItems[a].faceScore);
-            }
-
-            renderGallery(results);
-        }
-        searchInput.addEventListener('input', applySmartSearch);
-
-        // ==========================================
-        // ระบบ FACE RECOGNITION SEARCH 
-        // ==========================================
-        let modelsLoaded = false;
-        let webcamStream = null;
-        let targetFaceDescriptor = null;
-        let refinedFaceDescriptor = null;
-        let scanInterval = null; 
-
-        const faceModal = document.getElementById('faceModal');
-        const webcam = document.getElementById('webcam');
-        const uploadPreview = document.getElementById('uploadPreview');
-        const placeholderCamera = document.getElementById('placeholderCamera');
-        
-        const bankScanFrame = document.getElementById('bankScanFrame');
-        const scanRing = document.getElementById('scanRing');
-        const scanStatusText = document.getElementById('scanStatusText');
-        const scanLaser = document.getElementById('scanLaser');
-        
-        const captureFaceBtn = document.getElementById('captureFaceBtn');
-        const camBtnText = document.getElementById('camBtnText');
-        const faceLoadingOverlay = document.getElementById('faceLoadingOverlay');
-        const faceLoadingText = document.getElementById('faceLoadingText');
-        const modalProgressCircle = document.getElementById('modalProgressCircle');
-        const modalPercentText = document.getElementById('modalPercentText');
-
-        const faceStatusBanner = document.getElementById('faceStatusBanner');
-        const faceQueryPreview = document.getElementById('faceQueryPreview');
-        const faceScanStats = document.getElementById('faceScanStats');
-        const scanStatusTitle = document.getElementById('scanStatusTitle');
-        const scanPercentText = document.getElementById('scanPercentText');
-        const scanProgressBar = document.getElementById('scanProgressBar');
-        
-        const candidatePickerBox = document.getElementById('candidatePickerBox');
-        const candidateList = document.getElementById('candidateList');
-
-        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
-
-        function updateModalProgress(percent, text) {
-            if (percent !== undefined) {
-                modalPercentText.innerText = `${Math.round(percent)}%`;
-                const offset = 264 - (264 * percent) / 100;
-                modalProgressCircle.style.strokeDashoffset = offset;
-            }
-            if (text) faceLoadingText.innerText = text;
-        }
-
-        async function loadFaceModels() {
-            if (modelsLoaded) return true;
-            faceLoadingOverlay.classList.remove('hidden');
-            updateModalProgress(10, 'กำลังเชื่อมต่อ AI Vision...');
-
-            try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                updateModalProgress(35, 'กำลังโหลดโมเดลโครงร่างใบหน้า...');
-                
-                await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
-                updateModalProgress(60, 'กำลังเตรียมโมเดลวิเคราะห์เชิงลึก...');
-                
-                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-                updateModalProgress(85, 'กำลังเปิดระบบตรวจจับความคล้ายคลึง...');
-                
-                await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
-
-                updateModalProgress(100, 'ระบบพร้อมทำงาน');
-                modelsLoaded = true;
-                setTimeout(() => faceLoadingOverlay.classList.add('hidden'), 500);
-                return true;
-            } catch (err) {
-                alert('ไม่สามารถโหลดโมเดล AI ได้ (ตรวจสอบอินเทอร์เน็ต)');
-                faceLoadingOverlay.classList.add('hidden');
-                return false;
-            }
-        }
-
-        async function openFaceModal() {
-            faceModal.classList.remove('hidden');
-            if (!modelsLoaded) loadFaceModels();
-        }
-
-        function closeFaceModal() {
-            stopCamera();
-            faceModal.classList.add('hidden');
-        }
-
-        async function startFaceDetectionLoop() {
-            if (!webcamStream || webcam.paused) return;
-            const detectorOptions = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-            
-            scanInterval = setInterval(async () => {
-                if (webcam.paused || webcam.ended) return;
-                
-                const detection = await faceapi.detectSingleFace(webcam, detectorOptions);
-                
-                if (detection) {
-                    scanRing.classList.replace('border-sky-400/90', 'border-emerald-400');
-                    scanRing.classList.replace('shadow-[0_0_25px_rgba(56,189,248,0.5)]', 'shadow-[0_0_25px_rgba(52,211,153,0.6)]');
-                    scanLaser.classList.replace('shadow-[0_0_15px_3px_#38bdf8]', 'shadow-[0_0_15px_3px_#34d399]');
-                    
-                    scanStatusText.innerText = "จับใบหน้าได้แล้ว พร้อมค้นหา";
-                    scanStatusText.classList.replace('text-sky-200', 'text-emerald-300');
-                    scanStatusText.classList.replace('border-sky-400/30', 'border-emerald-400/40');
-                    
-                    captureFaceBtn.disabled = false;
-                    captureFaceBtn.classList.add('animate-pulse');
-                } else {
-                    scanRing.classList.replace('border-emerald-400', 'border-sky-400/90');
-                    scanRing.classList.replace('shadow-[0_0_25px_rgba(52,211,153,0.6)]', 'shadow-[0_0_25px_rgba(56,189,248,0.5)]');
-                    scanLaser.classList.replace('shadow-[0_0_15px_3px_#34d399]', 'shadow-[0_0_15px_3px_#38bdf8]');
-                    
-                    scanStatusText.innerText = "มองตรงที่กล้องและจัดหน้าให้อยู่ในกรอบ";
-                    scanStatusText.classList.replace('text-emerald-300', 'text-sky-200');
-                    scanStatusText.classList.replace('border-emerald-400/40', 'border-sky-400/30');
-                    
-                    captureFaceBtn.disabled = true;
-                    captureFaceBtn.classList.remove('animate-pulse');
-                }
-            }, 400); 
-        }
-
-        async function toggleCamera() {
-            if (webcamStream) {
-                stopCamera();
-            } else {
-                try {
-                    webcamStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { width: { ideal: 480 }, height: { ideal: 640 }, facingMode: 'user' } 
-                    });
-                    webcam.srcObject = webcamStream;
-                    webcam.classList.remove('hidden');
-                    uploadPreview.classList.add('hidden');
-                    placeholderCamera.classList.add('hidden');
-                    
-                    bankScanFrame.classList.remove('hidden');
-                    camBtnText.innerText = 'ปิดกล้อง';
-                    captureFaceBtn.disabled = true;
-
-                    webcam.onloadedmetadata = () => {
-                        webcam.play();
-                        startFaceDetectionLoop();
-                    };
-                    
-                } catch (e) {
-                    alert('ไม่สามารถเปิดกล้องได้ โปรดอนุญาตสิทธิ์การใช้กล้อง');
-                }
-            }
-        }
-
-        function stopCamera() {
-            if (scanInterval) {
-                clearInterval(scanInterval);
-                scanInterval = null;
-            }
-            if (webcamStream) {
-                webcamStream.getTracks().forEach(track => track.stop());
-                webcamStream = null;
-                webcam.classList.add('hidden');
-                bankScanFrame.classList.add('hidden');
-                camBtnText.innerText = 'เปิดกล้องสด';
-                
-                scanRing.classList.replace('border-emerald-400', 'border-sky-400/90');
-                scanRing.classList.replace('shadow-[0_0_25px_rgba(52,211,153,0.6)]', 'shadow-[0_0_25px_rgba(56,189,248,0.5)]');
-                scanLaser.classList.replace('shadow-[0_0_15px_3px_#34d399]', 'shadow-[0_0_15px_3px_#38bdf8]');
-                scanStatusText.innerText = "มองตรงที่กล้องและจัดหน้าให้อยู่ในกรอบ";
-                scanStatusText.classList.replace('text-emerald-300', 'text-sky-200');
-                scanStatusText.classList.replace('border-emerald-400/40', 'border-sky-400/30');
-                captureFaceBtn.classList.remove('animate-pulse');
-
-                if (uploadPreview.classList.contains('hidden')) {
-                    placeholderCamera.classList.remove('hidden');
-                    captureFaceBtn.disabled = true;
-                }
-            }
-        }
-
-        function handleFaceUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            stopCamera();
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                uploadPreview.src = event.target.result;
-                uploadPreview.classList.remove('hidden');
-                placeholderCamera.classList.add('hidden');
-                
-                bankScanFrame.classList.remove('hidden');
-                scanLaser.classList.add('hidden');
-                
-                captureFaceBtn.disabled = false;
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function processFaceSearch() {
-            if(!modelsLoaded) await loadFaceModels();
-            
-            faceLoadingOverlay.classList.remove('hidden');
-            updateModalProgress(40, 'กำลังแยกแยะเวกเตอร์ใบหน้าขั้นสูง...');
-
-            let detection = null;
-            let previewSrc = '';
-
-            if (webcamStream && !webcam.classList.contains('hidden')) {
-                const canvas = document.createElement('canvas');
-                canvas.width = webcam.videoWidth;
-                canvas.height = webcam.videoHeight;
-                canvas.getContext('2d').drawImage(webcam, 0, 0, canvas.width, canvas.height);
-                previewSrc = canvas.toDataURL('image/jpeg');
-                detection = await faceapi.detectSingleFace(canvas).withFaceLandmarks().withFaceDescriptor();
-            } else if (!uploadPreview.classList.contains('hidden')) {
-                previewSrc = uploadPreview.src;
-                detection = await faceapi.detectSingleFace(uploadPreview).withFaceLandmarks().withFaceDescriptor();
-            }
-
-            if (!detection) {
-                faceLoadingOverlay.classList.add('hidden');
-                alert('มองไม่เห็นใบหน้าที่ชัดเจน กรุณาขยับหน้าให้อยู่ในกรอบ หรือเพิ่มแสงสว่าง');
-                return;
-            }
-
-            updateModalProgress(100, 'ประมวลผลสำเร็จ!');
-            targetFaceDescriptor = detection.descriptor;
-            refinedFaceDescriptor = null;
-
-            faceQueryPreview.src = previewSrc;
-            
-            setTimeout(() => {
-                closeFaceModal();
-                matchFacesInDrive();
-            }, 400);
-        }
-
-        // ระบบประมวลผลคู่ขนานแบบแบ่งกลุ่ม (Batch Parallel Processing) เร่งสปีดสแกนรูป 4-5 เท่า
-        async function matchFacesInDrive() {
-            isFaceSearching = true;
-            faceStatusBanner.classList.remove('hidden');
-            candidatePickerBox.classList.add('hidden');
-            candidateList.innerHTML = '';
-            candidateMatches = [];
-
-            const STRICT_THRESHOLD = 0.46; 
-            const imageIndices = mediaItems.map((item, idx) => ({ item, idx })).filter(x => x.item.type === 'image');
-
-            let scanned = 0;
-            let matchedIndices = [];
-            
-            const BATCH_SIZE = 5; // ประมวลผลภาพพร้อมกันทีละ 5 ไฟล์
-
-            for (let i = 0; i < imageIndices.length; i += BATCH_SIZE) {
-                const batch = imageIndices.slice(i, i + BATCH_SIZE);
-                
-                const batchPromises = batch.map(async ({ item, idx }) => {
-                    try {
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous';
-                        img.src = item.thumb;
-                        await img.decode();
-
-                        const detections = await faceapi.detectAllFaces(img).withFaceLandmarks().withFaceDescriptors();
-                        let bestDist = 1.0;
-                        let bestDescriptor = null;
-
-                        for (const det of detections) {
-                            const descriptorToMatch = refinedFaceDescriptor || targetFaceDescriptor;
-                            const dist = faceapi.euclideanDistance(descriptorToMatch, det.descriptor);
-                            if (dist < bestDist) {
-                                bestDist = dist;
-                                bestDescriptor = det.descriptor;
-                            }
-                        }
-
-                        if (bestDist <= STRICT_THRESHOLD) {
-                            const score = Math.round(Math.max(0, (1 - bestDist / STRICT_THRESHOLD)) * 100);
-                            item.faceScore = score;
-                            return { idx, score, descriptor: bestDescriptor, item };
-                        } else {
-                            item.faceScore = 0;
-                        }
-                    } catch (e) {}
-                    return null;
-                });
-
-                const results = await Promise.all(batchPromises);
-                
-                results.forEach(res => {
-                    if (res) {
-                        matchedIndices.push(res.idx);
-                        if (candidateMatches.length < 5 && res.descriptor) {
-                            candidateMatches.push(res);
-                        }
-                    }
-                });
-
-                scanned += batch.length;
-                const percent = Math.round((Math.min(scanned, imageIndices.length) / imageIndices.length) * 100);
-                
-                scanProgressBar.style.width = `${percent}%`;
-                scanPercentText.innerText = `${percent}%`;
-                faceScanStats.innerText = `กำลังสแกนรูปที่ ${Math.min(scanned, imageIndices.length)} จาก ${imageIndices.length} รูป (พบแล้ว ${matchedIndices.length} รูป)...`;
-
-                // ถ้าพบรูปเพิ่ม ให้อัปเดตหน้าจอทันที
-                if (results.some(r => r !== null)) {
-                    matchedIndices.sort((a, b) => mediaItems[b].faceScore - mediaItems[a].faceScore);
-                    renderGallery(matchedIndices);
-                }
-            }
-
-            scanProgressBar.style.width = `100%`;
-            scanPercentText.innerText = `100%`;
-            scanStatusTitle.innerText = `การสแกนครบถ้วน 100%`;
-            faceScanStats.innerText = `เสร็จสิ้น! พบรูปที่ตรงกับหน้าของคุณ ${matchedIndices.length} รูป`;
-
-            if (candidateMatches.length > 0 && !refinedFaceDescriptor) {
-                renderCandidatePicker();
-            }
-        }
-
-        function renderCandidatePicker() {
-            candidateList.innerHTML = '';
-            candidateMatches.sort((a, b) => b.score - a.score);
-            
-            candidateMatches.forEach((cand) => {
-                const btn = document.createElement('button');
-                btn.className = 'group relative flex-shrink-0 flex flex-col items-center p-1.5 bg-white/20 hover:bg-white/40 rounded-2xl border-2 border-white/60 transition-all hover:scale-105 active:scale-95';
-                btn.innerHTML = `
-                    <div class="w-16 h-16 rounded-xl overflow-hidden border border-white/50 bg-black">
-                        <img src="${cand.item.thumb}" class="w-full h-full object-cover">
-                    </div>
-                    <span class="mt-1 text-[10px] font-bold text-yellow-300">ความคล้าย ${cand.score}%</span>
-                    <span class="text-[9px] text-white/90 underline">แตะเพื่อยืนยัน</span>
-                `;
-                btn.onclick = () => refineFaceMatch(cand.descriptor, cand.item.thumb);
-                candidateList.appendChild(btn);
-            });
-            candidatePickerBox.classList.remove('hidden');
-        }
-
-        async function refineFaceMatch(confirmedDescriptor, previewThumb) {
-            targetFaceDescriptor = confirmedDescriptor;
-            refinedFaceDescriptor = confirmedDescriptor;
-            
-            faceQueryPreview.src = previewThumb;
-            candidatePickerBox.classList.add('hidden');
-            
-            scanStatusTitle.innerText = 'กำลังประมวลผลตัวตนที่ยืนยันแล้ว...';
-            scanProgressBar.style.width = `0%`;
-            scanPercentText.innerText = `0%`;
-
-            mediaItems.forEach(i => i.faceScore = 0);
-            await matchFacesInDrive(); 
-        }
-
-        function clearFaceSearch() {
-            isFaceSearching = false;
-            targetFaceDescriptor = null;
-            refinedFaceDescriptor = null;
-            faceStatusBanner.classList.add('hidden');
-            candidatePickerBox.classList.add('hidden');
-            mediaItems.forEach(i => i.faceScore = 0);
-            applySmartSearch();
-        }
-
-        // ==========================================
-        // Modal Preview Lightbox (Native HTML5 Video)
-        // ==========================================
-        const lightbox = document.getElementById('lightbox');
-        const modalImg = document.getElementById('modalImage');
-        const modalVideoPlayer = document.getElementById('modalVideoPlayer');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalMeta = document.getElementById('modalMeta');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const downloadBtnMobile = document.getElementById('downloadBtnMobile');
-
-        function openModal(index) {
-            currentIndex = index;
-            renderModalContent();
-            lightbox.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeModal() {
-            lightbox.classList.add('hidden');
-            if (modalVideoPlayer) {
-                modalVideoPlayer.pause();
-                modalVideoPlayer.src = '';
-            }
-            document.body.style.overflow = '';
-        }
-
-        function renderModalContent() {
-            const item = mediaItems[currentIndex];
-            modalTitle.innerText = item.name;
-            modalMeta.innerText = `${item.folder} • ${item.size} ${item.faceScore > 0 ? `• ตรงกัน: ${item.faceScore}%` : ''}`;
-            
-            downloadBtn.href = item.webViewLink;
-            downloadBtnMobile.href = item.webViewLink;
-
-            if (item.type === 'video') {
-                modalImg.classList.add('hidden');
-                modalVideoPlayer.classList.remove('hidden');
-                // โหลดตรงด้วย URL ดาวน์โหลดของ Google Drive บายพาสหน้าจอเตือน
-                modalVideoPlayer.src = `https://drive.google.com/uc?export=download&id=${item.id}`;
-                modalVideoPlayer.load();
-                modalVideoPlayer.play().catch(e => console.log("Auto-play prevented", e));
-            } else {
-                modalVideoPlayer.classList.add('hidden');
-                modalVideoPlayer.pause();
-                modalVideoPlayer.src = '';
-                
-                modalImg.classList.remove('hidden');
-                modalImg.src = item.thumb.replace(/=s\d+/, '=s1600');
-            }
-        }
-
-        function nextItem(e) {
-            if (e) e.stopPropagation();
-            if (filteredIndices.length === 0) return;
-            const pos = filteredIndices.indexOf(currentIndex);
-            const nextPos = (pos + 1) % filteredIndices.length;
-            currentIndex = filteredIndices[nextPos];
-            renderModalContent();
-        }
-
-        function prevItem(e) {
-            if (e) e.stopPropagation();
-            if (filteredIndices.length === 0) return;
-            const pos = filteredIndices.indexOf(currentIndex);
-            const prevPos = (pos - 1 + filteredIndices.length) % filteredIndices.length;
-            currentIndex = filteredIndices[prevPos];
-            renderModalContent();
-        }
-
-        window.addEventListener('keydown', (e) => {
-            if (lightbox.classList.contains('hidden')) return;
-            if (e.key === 'Escape') closeModal();
-            if (e.key === 'ArrowRight') nextItem();
-            if (e.key === 'ArrowLeft') prevItem();
-        });
-
-        // Touch Swipe เลื่อนรูปภาพ
-        let touchStartX = 0;
-        let touchEndX = 0;
-        lightbox.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
-        lightbox.addEventListener('touchend', e => { 
-            touchEndX = e.changedTouches[0].screenX; 
-            if (touchStartX - touchEndX > 50) nextItem();
-            else if (touchEndX - touchStartX > 50) prevItem();
-        }, {passive: true});
-
-        // เริ่มโหลดข้อมูล
-        fetchAllMedia();
-    </script>
+    <div id="faceLoadingOverlay" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center text-white space-y-4 p-4 text-center z-30">
+     <div class="relative w-24 h-24 flex items-center justify-center">
+      <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+       <circle cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.15)" stroke-width="8" fill="none"/>
+       <circle id="modalProgressCircle" cx="50" cy="50" r="42" stroke="#38bdf8" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round" fill="none" class="transition-all duration-300"/>
+      </svg>
+      <span id="modalPercentText" class="absolute text-lg font-black text-cyan-300">0%</span>
+     </div>
+     <p id="faceLoadingText" class="text-sm font-bold text-white">กำลังเตรียมระบบ AI...</p>
+    </div>
+   </div>
+  </div>
+
+  <div class="space-y-2.5">
+   <div class="grid grid-cols-2 gap-2.5">
+    <button id="startCamBtn" onclick="toggleCamera()" class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-blue-50 hover:bg-blue-100 text-brand-700 font-bold text-xs border border-blue-200 transition-all">
+     <i data-lucide="video" class="w-4 h-4"></i><span id="camBtnText">เปิดกล้องสด</span>
+    </button>
+    <label class="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-200 cursor-pointer transition-all">
+     <i data-lucide="upload" class="w-4 h-4"></i><span>อัปโหลดรูป</span>
+     <input type="file" id="faceFileInput" accept="image/*" class="hidden" onchange="handleFaceUpload(event)">
+    </label>
+   </div>
+   <button id="captureFaceBtn" onclick="processFaceSearch()" disabled class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-sky-500 hover:from-blue-700 hover:to-sky-600 disabled:bg-slate-200 disabled:from-slate-200 disabled:to-slate-200 disabled:text-slate-400 text-white font-bold text-sm shadow-lg shadow-blue-500/25 transition-all">ยืนยันใบหน้านี้ & ค้นหาทันที</button>
+  </div>
+ </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-xl hidden flex flex-col justify-between p-2 sm:p-4 select-none">
+ <div class="flex items-center justify-between text-white max-w-7xl w-full mx-auto pb-2 border-b border-white/10 mt-2 sm:mt-0">
+  <div class="text-sm overflow-hidden pr-2">
+   <p id="modalTitle" class="font-bold text-white truncate max-w-xs sm:max-w-md"></p>
+   <p id="modalMeta" class="text-[10px] sm:text-xs text-blue-200 truncate"></p>
+  </div>
+  <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+   <a id="downloadBtn" href="#" target="_blank" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-medium transition-all shadow-md"><i data-lucide="download" class="w-4 h-4"></i><span>เปิดใน Drive</span></a>
+   <a id="downloadBtnMobile" href="#" target="_blank" class="sm:hidden p-2 bg-brand-600 rounded-lg text-white"><i data-lucide="download" class="w-4 h-4"></i></a>
+   <button onclick="closeModal()" class="p-2 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"><i data-lucide="x" class="w-5 h-5 sm:w-6 sm:h-6"></i></button>
+  </div>
+ </div>
+
+ <div class="relative flex-1 flex items-center justify-center my-2 sm:my-4 overflow-hidden group">
+  <button onclick="prevItem(event)" class="absolute left-1 sm:left-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
+  <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
+  <video id="modalVideoPlayer" controls playsinline preload="metadata" class="hidden max-h-full max-w-full rounded-lg sm:rounded-xl shadow-2xl bg-black outline-none w-full sm:w-auto h-[60vh] sm:h-[70vh]"></video>
+  <iframe id="modalVideoFrame" allow="autoplay; fullscreen" allowfullscreen class="hidden w-full sm:w-[80vw] h-[60vh] sm:h-[70vh] rounded-lg sm:rounded-xl shadow-2xl bg-black border-0"></iframe>
+  <button onclick="nextItem(event)" class="absolute right-1 sm:right-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
+ </div>
+
+ <div class="text-center text-[10px] sm:text-xs text-slate-400 mb-2 sm:mb-0 space-y-1">
+  <button id="videoModeBtn" onclick="toggleVideoMode()" class="hidden px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs"></button>
+  <p>ปัดซ้าย-ขวา หรือกดลูกศรบนคีย์บอร์ดเพื่อเปลี่ยนรูป</p>
+ </div>
+</div>
+
+<script>
+const GOOGLE_API_KEY='AIzaSyBpNe477-EhO0iWExQJqcuRXNiGiwHfABE';
+const ROOT_FOLDER_ID='17qWKQ4AIsFEVXNlFSEp7Mu2C_qWmKjPK';
+const DATA_TTL=5*60*1000;        // เก่ากว่านี้ = โหลดใหม่เบื้องหลัง (แต่แสดงแคชทันที)
+const THUMB_SIZE=400;            // ขนาดเดียวกันทั้งแสดงผลและสแกน => ใช้แคชเบราว์เซอร์ร่วมกัน
+const PAGE_CHUNK=60;             // จำนวนการ์ดที่วาดต่อรอบ (infinite scroll)
+const MATCH_THRESHOLD=0.48;      // ยิ่งต่ำยิ่งเข้มงวด
+
+let mediaItems=[],filteredIndices=[],currentIndex=0,activeFilter='all',isFaceSearching=false,detectedFolders=[];
+const $=id=>document.getElementById(id);
+const galleryGrid=$('galleryGrid'),folderTabs=$('folderTabs'),driveLoading=$('driveLoading'),loadingStatusText=$('loadingStatusText'),
+      noResults=$('noResults'),imageCounter=$('imageCounter'),searchInput=$('searchInput'),sentinel=$('gallerySentinel');
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- IndexedDB (เก็บรายการไฟล์ + ดัชนีใบหน้า) ---------- */
+let dbP=null;
+function openDB(){
+  return dbP||(dbP=new Promise((res,rej)=>{
+    const r=indexedDB.open('hana_gallery_db',1);
+    r.onupgradeneeded=()=>{r.result.createObjectStore('meta');r.result.createObjectStore('faces');};
+    r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);
+  }));
+}
+async function idbGet(store,key){const db=await openDB();return new Promise(res=>{const q=db.transaction(store).objectStore(store).get(key);q.onsuccess=()=>res(q.result);q.onerror=()=>res(null);});}
+async function idbPut(store,key,val){try{const db=await openDB();const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(val,key);}catch(e){}}
+async function idbDel(store,key){try{const db=await openDB();db.transaction(store,'readwrite').objectStore(store).delete(key);}catch(e){}}
+async function idbAllFaces(){
+  const db=await openDB();
+  return new Promise(res=>{const out=new Map();const q=db.transaction('faces').objectStore('faces').openCursor();
+    q.onsuccess=e=>{const c=e.target.result;if(c){out.set(c.key,c.value);c.continue();}else res(out);};q.onerror=()=>res(out);});
+}
+async function idbSaveFaces(entries){
+  try{const db=await openDB();const tx=db.transaction('faces','readwrite');const s=tx.objectStore('faces');entries.forEach(([k,v])=>s.put(v,k));}catch(e){}
+}
+
+/* ---------- Google Drive: ดึงข้อมูลแบบรวมหลายโฟลเดอร์ต่อ 1 query + ขนาน ---------- */
+const FILE_FIELDS='nextPageToken, files(id,name,mimeType,size,webViewLink,thumbnailLink,parents)';
+async function fetchDriveFiles(query,fields=FILE_FIELDS){
+  let files=[],pageToken='';
+  do{
+    let url=`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&key=${GOOGLE_API_KEY}`;
+    if(pageToken)url+=`&pageToken=${encodeURIComponent(pageToken)}`;
+    const res=await fetch(url);
+    if(!res.ok){const j=await res.json().catch(()=>({}));throw new Error(j.error?j.error.message:`HTTP ${res.status}`);}
+    const d=await res.json();
+    if(d.files)files=files.concat(d.files);
+    pageToken=d.nextPageToken||'';
+  }while(pageToken);
+  return files;
+}
+const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
+const parentsClause=ids=>ids.map(id=>`'${id}' in parents`).join(' or ');
+const fallbackThumb=(id,s=THUMB_SIZE)=>`https://drive.google.com/thumbnail?id=${id}&sz=w${s}`;
+const buildThumb=f=>f.thumbnailLink?f.thumbnailLink.replace(/=s\d+/,`=s${THUMB_SIZE}`):fallbackThumb(f.id);
+const hiRes=item=>/=s\d+/.test(item.thumb)?item.thumb.replace(/=s\d+/,'=s1600'):fallbackThumb(item.id,1600);
+function thumbError(img){if(img.dataset.fb)return;img.dataset.fb='1';img.src=fallbackThumb(img.dataset.id);}
+
+async function loadFromDrive(showProgress){
+  const FOLDER='mimeType = \'application/vnd.google-apps.folder\' and trashed = false';
+  const cats=await fetchDriveFiles(`'${ROOT_FOLDER_ID}' in parents and ${FOLDER}`,'nextPageToken, files(id,name)');
+  const folderToCat=new Map(cats.map(c=>[c.id,c.name]));
+  const subs=(await Promise.all(chunk(cats.map(c=>c.id),20).map(ch=>
+    fetchDriveFiles(`(${parentsClause(ch)}) and ${FOLDER}`,'nextPageToken, files(id,name,parents)')))).flat();
+  subs.forEach(s=>folderToCat.set(s.id,folderToCat.get(s.parents[0])));
+
+  let count=0;const seen=new Set(),items=[];
+  await Promise.all(chunk([...folderToCat.keys()],20).map(async ch=>{
+    const q=`(${parentsClause(ch)}) and (mimeType contains 'image/' or mimeType contains 'video/') and trashed = false`;
+    const files=await fetchDriveFiles(q);
+    files.forEach(f=>{
+      if(seen.has(f.id))return;seen.add(f.id);
+      const isVid=f.mimeType.startsWith('video/');
+      items.push({id:f.id,name:f.name,folder:folderToCat.get(f.parents&&f.parents[0])||'อื่นๆ',type:isVid?'video':'image',
+        size:f.size?(parseInt(f.size)/1048576).toFixed(2)+' MB':'N/A',thumb:buildThumb(f),webViewLink:f.webViewLink,faceScore:0});
+    });
+    count=items.length;
+    if(showProgress)loadingStatusText.innerText=`กำลังโหลดรายการไฟล์... (${count} ไฟล์)`;
+  }));
+  items.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'}));
+  return {folders:cats.map(c=>c.name),files:items,timestamp:Date.now()};
+}
+
+function showGallery(){
+  renderFolderTabs();
+  driveLoading.classList.add('hidden');
+  galleryGrid.classList.remove('hidden');
+  applySmartSearch();
+}
+
+async function fetchAllMedia(){
+  let cached=null;
+  try{cached=await idbGet('meta','media');}catch(e){}
+  if(cached&&cached.files&&cached.files.length){
+    // Stale-while-revalidate: แสดงแคชทันที แล้วค่อยอัปเดตเบื้องหลัง
+    detectedFolders=cached.folders;mediaItems=cached.files;showGallery();
+    if(Date.now()-cached.timestamp>DATA_TTL)refreshInBackground();
+    return;
+  }
+  try{
+    loadingStatusText.innerText='กำลังเชื่อมต่อ Google Drive...';
+    const d=await loadFromDrive(true);
+    detectedFolders=d.folders;mediaItems=d.files;showGallery();idbPut('meta','media',d);
+  }catch(err){
+    console.error(err);
+    driveLoading.innerHTML=`<div class="p-6 bg-rose-50 text-rose-800 rounded-2xl max-w-lg mx-auto border border-rose-200"><p class="font-bold text-base mb-1">เกิดข้อผิดพลาดในการโหลดข้อมูล</p><p class="text-xs">${esc(err.message)}</p></div>`;
+  }
+}
+async function refreshInBackground(){
+  try{
+    const d=await loadFromDrive(false);
+    idbPut('meta','media',d);
+    const sameSet=d.files.length===mediaItems.length&&d.files.every((f,i)=>f.id===mediaItems[i].id);
+    if(sameSet){d.files.forEach((f,i)=>{mediaItems[i].thumb=f.thumb;});}   // อัปเดตลิงก์รูปที่อาจหมดอายุ
+    else if(!isFaceSearching){detectedFolders=d.folders;mediaItems=d.files;showGallery();}
+  }catch(e){console.warn('background refresh failed',e);}
+}
+function forceRefreshData(){idbDel('meta','media').then(()=>location.reload());}
+
+/* ---------- Folder tabs / filter ---------- */
+const TAB_ON='filter-tab active flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all bg-brand-600 text-white shadow-md shadow-brand-600/20';
+const TAB_OFF='filter-tab flex-shrink-0 px-4 py-2 rounded-full text-xs sm:text-sm font-medium transition-all bg-white text-slate-600 hover:bg-blue-50 hover:text-brand-600 border border-blue-200/80 shadow-sm';
+function renderFolderTabs(){
+  if(!detectedFolders.length)return;
+  folderTabs.innerHTML='';
+  const counts={};mediaItems.forEach(m=>counts[m.folder]=(counts[m.folder]||0)+1);
+  const mk=(label,key)=>{const b=document.createElement('button');b.className=activeFilter===key?TAB_ON:TAB_OFF;b.textContent=label;b.onclick=()=>setFilter(key,b);folderTabs.appendChild(b);};
+  mk(`ทั้งหมด (${mediaItems.length})`,'all');
+  detectedFolders.forEach(f=>mk(`📁 ${f} (${counts[f]||0})`,f));
+  folderTabs.classList.remove('hidden');
+}
+function setFilter(folder,btn){
+  activeFilter=folder;
+  document.querySelectorAll('.filter-tab').forEach(b=>b.className=TAB_OFF);
+  btn.className=TAB_ON;applySmartSearch();
+}
+
+/* ---------- Gallery: วาดทีละชุด (infinite scroll) เพื่อไม่ให้หน่วง ---------- */
+let currentList=[],renderedCount=0;
+const ICON_PLAY='<svg viewBox="0 0 24 24" class="w-5 h-5 ml-0.5" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+const ICON_MAX='<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+
+function buildCard(idx){
+  const item=mediaItems[idx];
+  const card=document.createElement('div');
+  card.dataset.idx=idx;
+  card.className='group relative bg-white rounded-2xl overflow-hidden border border-blue-100 shadow-[0_4px_16px_rgba(37,99,235,0.04)] hover:shadow-[0_12px_28px_rgba(37,99,235,0.12)] hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer';
+  const badge=(isFaceSearching&&item.faceScore>0)?`<span class="absolute top-2 left-2 z-10 px-2.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold shadow-md">ตรงกัน ${item.faceScore}%</span>`:'';
+  const img=`<img src="${item.thumb}" data-id="${item.id}" alt="" loading="lazy" decoding="async" onerror="thumbError(this)" class="w-full h-full object-cover ${item.type==='image'?'group-hover:scale-105 transition-transform duration-300':''}">`;
+  const overlay=item.type==='video'
+    ?`<div class="absolute inset-0 bg-slate-900/30 flex items-center justify-center"><span class="w-10 h-10 rounded-full bg-white/90 text-brand-600 flex items-center justify-center shadow-lg">${ICON_PLAY}</span></div><span class="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-brand-600/90 text-white text-[10px] font-bold uppercase">VIDEO</span>`
+    :`<div class="absolute inset-0 bg-blue-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"><span class="p-2.5 bg-white/95 rounded-full text-brand-600 shadow-md">${ICON_MAX}</span></div>`;
+  card.innerHTML=`<div class="px-3 py-2 bg-white/95 border-b border-blue-50 flex items-center justify-between text-[11px] font-medium text-slate-600"><span class="truncate text-brand-600 font-semibold" title="${esc(item.name)}">${esc(item.name)}</span><span class="text-[10px] text-slate-400 font-normal ml-2 flex-shrink-0">${item.size}</span></div><div class="aspect-square w-full bg-slate-100 overflow-hidden relative">${badge}${img}${overlay}</div>`;
+  return card;
+}
+function renderMore(){
+  if(renderedCount>=currentList.length)return;
+  const frag=document.createDocumentFragment();
+  const end=Math.min(renderedCount+PAGE_CHUNK,currentList.length);
+  for(let i=renderedCount;i<end;i++)frag.appendChild(buildCard(currentList[i]));
+  galleryGrid.appendChild(frag);renderedCount=end;
+  requestAnimationFrame(()=>{if(sentinel.getBoundingClientRect().top<innerHeight+800)renderMore();});
+}
+function renderGallery(indices){
+  filteredIndices=currentList=indices;renderedCount=0;
+  galleryGrid.innerHTML='';imageCounter.innerText=indices.length;
+  noResults.classList.toggle('hidden',indices.length>0);
+  renderMore();
+}
+new IntersectionObserver(e=>{if(e[0].isIntersecting)renderMore();},{rootMargin:'800px'}).observe(sentinel);
+galleryGrid.addEventListener('click',e=>{const c=e.target.closest('[data-idx]');if(c)openModal(+c.dataset.idx);});
+
+function applySmartSearch(){
+  const tokens=searchInput.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  let results=[];
+  mediaItems.forEach((item,i)=>{
+    if(activeFilter!=='all'&&item.folder!==activeFilter)return;
+    if(tokens.length){const t=`${item.name} ${item.folder}`.toLowerCase();if(!tokens.every(k=>t.includes(k)))return;}
+    results.push(i);
+  });
+  if(isFaceSearching){results=results.filter(i=>mediaItems[i].faceScore>0).sort((a,b)=>mediaItems[b].faceScore-mediaItems[a].faceScore);}
+  renderGallery(results);
+}
+let searchTimer;
+searchInput.addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(applySmartSearch,150);});
+
+/* ==========================================
+   FACE RECOGNITION (เร็วขึ้น: TinyFaceDetector + ดัชนีใบหน้าใน IndexedDB)
+   ========================================== */
+let modelsPromise=null,modelsLoaded=false,webcamStream=null,targetFaceDescriptor=null,refinedFaceDescriptor=null,
+    scanInterval=null,detecting=false,scanToken=0,faceIndex=null;
+const MODEL_URL='https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+const faceModal=$('faceModal'),webcam=$('webcam'),uploadPreview=$('uploadPreview'),placeholderCamera=$('placeholderCamera'),
+      bankScanFrame=$('bankScanFrame'),scanRing=$('scanRing'),scanStatusText=$('scanStatusText'),scanLaser=$('scanLaser'),
+      captureFaceBtn=$('captureFaceBtn'),camBtnText=$('camBtnText'),faceLoadingOverlay=$('faceLoadingOverlay'),
+      faceLoadingText=$('faceLoadingText'),modalProgressCircle=$('modalProgressCircle'),modalPercentText=$('modalPercentText'),
+      faceStatusBanner=$('faceStatusBanner'),faceQueryPreview=$('faceQueryPreview'),faceScanStats=$('faceScanStats'),
+      scanStatusTitle=$('scanStatusTitle'),scanPercentText=$('scanPercentText'),scanProgressBar=$('scanProgressBar'),
+      candidatePickerBox=$('candidatePickerBox'),candidateList=$('candidateList');
+
+const tinyOpts=(size,score)=>new faceapi.TinyFaceDetectorOptions({inputSize:size,scoreThreshold:score});
+
+function updateModalProgress(p,text){
+  modalPercentText.innerText=`${Math.round(p)}%`;
+  modalProgressCircle.style.strokeDashoffset=264-(264*p)/100;
+  if(text)faceLoadingText.innerText=text;
+}
+function loadFaceModels(){
+  if(modelsPromise)return modelsPromise;
+  modelsPromise=(async()=>{
+    try{await faceapi.tf.setBackend('webgl');await faceapi.tf.ready();}catch(e){}
+    let done=0;const step=()=>{done++;updateModalProgress(done/3*100,done<3?'กำลังโหลดโมเดล AI...':'ระบบพร้อมทำงาน');};
+    // โหลด 3 โมเดลพร้อมกัน (ไม่ใช้ SSD MobileNet ที่หนักและช้า)
+    await Promise.all([faceapi.nets.tinyFaceDetector,faceapi.nets.faceLandmark68Net,faceapi.nets.faceRecognitionNet]
+      .map(n=>n.loadFromUri(MODEL_URL).then(step)));
+    modelsLoaded=true;
+  })().catch(e=>{modelsPromise=null;throw e;});
+  return modelsPromise;
+}
+async function ensureModels(){
+  if(modelsLoaded)return true;
+  faceLoadingOverlay.classList.remove('hidden');updateModalProgress(5,'กำลังเชื่อมต่อ AI Vision...');
+  try{await loadFaceModels();setTimeout(()=>faceLoadingOverlay.classList.add('hidden'),300);return true;}
+  catch(e){alert('ไม่สามารถโหลดโมเดล AI ได้ (ตรวจสอบอินเทอร์เน็ต)');faceLoadingOverlay.classList.add('hidden');return false;}
+}
+function openFaceModal(){faceModal.classList.remove('hidden');ensureModels();}
+function closeFaceModal(){stopCamera();faceModal.classList.add('hidden');}
+
+function setDetected(ok){
+  [scanRing,scanLaser,scanStatusText].forEach(el=>el.classList.toggle('ok',ok));
+  scanStatusText.innerText=ok?'จับใบหน้าได้แล้ว พร้อมค้นหา':'มองตรงที่กล้องและจัดหน้าให้อยู่ในกรอบ';
+  captureFaceBtn.classList.toggle('animate-pulse',ok);
+}
+function startFaceDetectionLoop(){
+  const opts=tinyOpts(224,0.5);
+  scanInterval=setInterval(async()=>{
+    if(detecting||!modelsLoaded||webcam.paused||webcam.ended)return;
+    detecting=true;
+    try{const d=await faceapi.detectSingleFace(webcam,opts);setDetected(!!d);captureFaceBtn.disabled=!d;}
+    finally{detecting=false;}
+  },350);
+}
+async function toggleCamera(){
+  if(webcamStream){stopCamera();return;}
+  try{
+    webcamStream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:480},height:{ideal:640},facingMode:'user'}});
+    webcam.srcObject=webcamStream;
+    webcam.classList.remove('hidden');uploadPreview.classList.add('hidden');placeholderCamera.classList.add('hidden');
+    bankScanFrame.classList.remove('hidden');scanLaser.classList.remove('hidden');
+    camBtnText.innerText='ปิดกล้อง';captureFaceBtn.disabled=true;
+    webcam.onloadedmetadata=()=>{webcam.play();startFaceDetectionLoop();};
+  }catch(e){alert('ไม่สามารถเปิดกล้องได้ โปรดอนุญาตสิทธิ์การใช้กล้อง');}
+}
+function stopCamera(){
+  if(scanInterval){clearInterval(scanInterval);scanInterval=null;}
+  if(webcamStream){
+    webcamStream.getTracks().forEach(t=>t.stop());webcamStream=null;
+    webcam.classList.add('hidden');bankScanFrame.classList.add('hidden');camBtnText.innerText='เปิดกล้องสด';setDetected(false);
+    if(uploadPreview.classList.contains('hidden')){placeholderCamera.classList.remove('hidden');captureFaceBtn.disabled=true;}
+  }
+}
+function handleFaceUpload(e){
+  const file=e.target.files[0];if(!file)return;
+  stopCamera();
+  const r=new FileReader();
+  r.onload=ev=>{
+    uploadPreview.src=ev.target.result;uploadPreview.classList.remove('hidden');placeholderCamera.classList.add('hidden');
+    bankScanFrame.classList.remove('hidden');scanLaser.classList.add('hidden');captureFaceBtn.disabled=false;
+  };
+  r.readAsDataURL(file);
+}
+async function processFaceSearch(){
+  if(!(await ensureModels()))return;
+  faceLoadingOverlay.classList.remove('hidden');updateModalProgress(40,'กำลังแยกแยะเวกเตอร์ใบหน้า...');
+  let det=null,src='';
+  const opts=tinyOpts(416,0.4);
+  if(webcamStream&&!webcam.classList.contains('hidden')){
+    const c=document.createElement('canvas');c.width=webcam.videoWidth;c.height=webcam.videoHeight;
+    c.getContext('2d').drawImage(webcam,0,0,c.width,c.height);
+    src=c.toDataURL('image/jpeg',0.85);
+    det=await faceapi.detectSingleFace(c,opts).withFaceLandmarks().withFaceDescriptor();
+  }else if(!uploadPreview.classList.contains('hidden')){
+    src=uploadPreview.src;
+    det=await faceapi.detectSingleFace(uploadPreview,opts).withFaceLandmarks().withFaceDescriptor();
+  }
+  if(!det){faceLoadingOverlay.classList.add('hidden');alert('มองไม่เห็นใบหน้าที่ชัดเจน กรุณาขยับหน้าให้อยู่ในกรอบ หรือเพิ่มแสงสว่าง');return;}
+  updateModalProgress(100,'ประมวลผลสำเร็จ!');
+  targetFaceDescriptor=det.descriptor;refinedFaceDescriptor=null;faceQueryPreview.src=src;
+  setTimeout(()=>{faceLoadingOverlay.classList.add('hidden');closeFaceModal();matchFacesInDrive();},250);
+}
+
+const loadImg=item=>new Promise(res=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>res(i);i.onerror=()=>res(null);i.src=item.thumb;});
+
+async function matchFacesInDrive(){
+  const token=++scanToken;
+  isFaceSearching=true;
+  faceStatusBanner.classList.remove('hidden');candidatePickerBox.classList.add('hidden');candidateList.innerHTML='';
+  scanStatusTitle.innerText='กำลังตรวจวิเคราะห์ใบหน้าในคลังภาพ...';
+  if(!faceIndex)faceIndex=await idbAllFaces();   // ดัชนีที่เคยสแกนไว้แล้ว (ข้ามการสแกนซ้ำ)
+  const target=refinedFaceDescriptor||targetFaceDescriptor;
+  mediaItems.forEach(i=>i.faceScore=0);
+
+  const candidates=new Map();let matched=0;
+  const evaluate=(item,descs)=>{
+    let bd=1,bdesc=null;
+    for(const d of descs){const dist=faceapi.euclideanDistance(target,d);if(dist<bd){bd=dist;bdesc=d;}}
+    if(bd<MATCH_THRESHOLD){item.faceScore=Math.round((1-bd/MATCH_THRESHOLD)*100);matched++;candidates.set(item.id,{item,score:item.faceScore,descriptor:bdesc});}
+  };
+  const images=mediaItems.filter(m=>m.type==='image'),pending=[];
+  images.forEach(it=>{const rec=faceIndex.get(it.id);rec?evaluate(it,rec):pending.push(it);});
+  let done=images.length-pending.length;
+  const progress=()=>{
+    const p=images.length?Math.round(done/images.length*100):100;
+    scanProgressBar.style.width=`${p}%`;scanPercentText.innerText=`${p}%`;
+    faceScanStats.innerText=`สแกนแล้ว ${done}/${images.length} รูป (ใช้ผลที่จำไว้ ${images.length-pending.length} รูป) • พบ ${matched} รูป`;
+  };
+  progress();applySmartSearch();
+
+  if(pending.length&&!(await ensureModelsQuiet()))return;
+  const BATCH=8;let lastRender=Date.now();
+  const loadBatch=i=>Promise.all(pending.slice(i,i+BATCH).map(loadImg));
+  let next=pending.length?loadBatch(0):null;
+  const opts=tinyOpts(320,0.4);
+  for(let i=0;i<pending.length;i+=BATCH){
+    if(token!==scanToken)return;
+    const imgs=await next;
+    next=i+BATCH<pending.length?loadBatch(i+BATCH):null;   // โหลดชุดถัดไประหว่างประมวลผลชุดนี้
+    const toSave=[];
+    for(let k=0;k<imgs.length;k++){
+      const item=pending[i+k],img=imgs[k];
+      if(token!==scanToken)return;
+      if(img){
+        try{
+          const dets=await faceapi.detectAllFaces(img,opts).withFaceLandmarks().withFaceDescriptors();
+          const descs=dets.map(d=>d.descriptor);
+          faceIndex.set(item.id,descs);toSave.push([item.id,descs]);evaluate(item,descs);
+        }catch(e){}
+      }
+      done++;
+    }
+    idbSaveFaces(toSave);progress();
+    if(Date.now()-lastRender>1200){lastRender=Date.now();applySmartSearch();}
+  }
+  if(token!==scanToken)return;
+  applySmartSearch();
+  scanProgressBar.style.width='100%';scanPercentText.innerText='100%';
+  scanStatusTitle.innerText='การสแกนครบถ้วน 100%';
+  faceScanStats.innerText=`เสร็จสิ้น! พบรูปที่ตรงกับหน้าของคุณ ${matched} รูป`;
+  if(!refinedFaceDescriptor&&candidates.size){
+    renderCandidatePicker([...candidates.values()].sort((a,b)=>b.score-a.score).slice(0,5));
+  }
+}
+async function ensureModelsQuiet(){try{await loadFaceModels();return true;}catch(e){alert('ไม่สามารถโหลดโมเดล AI ได้');return false;}}
+
+function renderCandidatePicker(list){
+  candidateList.innerHTML='';
+  list.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='group relative flex-shrink-0 flex flex-col items-center p-1.5 bg-white/20 hover:bg-white/40 rounded-2xl border-2 border-white/60 transition-all hover:scale-105 active:scale-95';
+    b.innerHTML=`<div class="w-16 h-16 rounded-xl overflow-hidden border border-white/50 bg-black"><img src="${c.item.thumb}" class="w-full h-full object-cover"></div><span class="mt-1 text-[10px] font-bold text-yellow-300">ความคล้าย ${c.score}%</span><span class="text-[9px] text-white/90 underline">แตะเพื่อยืนยัน</span>`;
+    b.onclick=()=>refineFaceMatch(c.descriptor,c.item.thumb);
+    candidateList.appendChild(b);
+  });
+  candidatePickerBox.classList.remove('hidden');
+}
+function refineFaceMatch(desc,thumb){
+  targetFaceDescriptor=refinedFaceDescriptor=desc;
+  faceQueryPreview.src=thumb;candidatePickerBox.classList.add('hidden');
+  matchFacesInDrive();   // ดัชนีมีครบแล้ว => คำนวณทันที ไม่ต้องสแกนรูปใหม่
+}
+function clearFaceSearch(){
+  scanToken++;isFaceSearching=false;targetFaceDescriptor=refinedFaceDescriptor=null;
+  faceStatusBanner.classList.add('hidden');candidatePickerBox.classList.add('hidden');
+  mediaItems.forEach(i=>i.faceScore=0);applySmartSearch();
+}
+
+/* ==========================================
+   Lightbox + วิดีโอจาก Google Drive
+   ========================================== */
+const lightbox=$('lightbox'),modalImg=$('modalImage'),modalVideoPlayer=$('modalVideoPlayer'),modalVideoFrame=$('modalVideoFrame'),
+      modalTitle=$('modalTitle'),modalMeta=$('modalMeta'),downloadBtn=$('downloadBtn'),downloadBtnMobile=$('downloadBtnMobile'),videoModeBtn=$('videoModeBtn');
+let videoTimer=null,videoMode='native',playingItem=null;
+
+function stopVideo(){
+  clearTimeout(videoTimer);
+  modalVideoPlayer.pause();modalVideoPlayer.removeAttribute('src');modalVideoPlayer.load();
+  modalVideoFrame.src='about:blank';
+  modalVideoPlayer.classList.add('hidden');modalVideoFrame.classList.add('hidden');videoModeBtn.classList.add('hidden');
+}
+/* native: <video> ผ่าน Drive API (alt=media) รองรับ Range/ไฟล์ใหญ่ ไม่ติดหน้าเตือนไวรัส
+   drive : ฝังเครื่องเล่นของ Google Drive (ใช้ได้ทุกฟอร์แมต เช่น .mov/HEVC) — สลับอัตโนมัติถ้า native เล่นไม่ได้ */
+function playVideo(item,mode){
+  stopVideo();playingItem=item;videoMode=mode;
+  modalImg.classList.add('hidden');videoModeBtn.classList.remove('hidden');
+  if(mode==='native'){
+    modalVideoPlayer.classList.remove('hidden');
+    modalVideoPlayer.onloadedmetadata=()=>clearTimeout(videoTimer);
+    modalVideoPlayer.onerror=()=>{if(modalVideoPlayer.getAttribute('src')&&videoMode==='native')playVideo(item,'drive');};
+    modalVideoPlayer.src=`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${GOOGLE_API_KEY}`;
+    modalVideoPlayer.load();modalVideoPlayer.play().catch(()=>{});
+    videoTimer=setTimeout(()=>{if(playingItem===item&&modalVideoPlayer.readyState<1)playVideo(item,'drive');},8000);
+    videoModeBtn.innerText='เล่นไม่ได้? เปิดด้วยเครื่องเล่นของ Google Drive';
+  }else{
+    modalVideoFrame.classList.remove('hidden');
+    modalVideoFrame.src=`https://drive.google.com/file/d/${item.id}/preview`;
+    videoModeBtn.innerText='ลองเล่นแบบเครื่องเล่นในเว็บ';
+  }
+}
+function toggleVideoMode(){if(playingItem)playVideo(playingItem,videoMode==='native'?'drive':'native');}
+
+function openModal(i){currentIndex=i;renderModalContent();lightbox.classList.remove('hidden');document.body.style.overflow='hidden';}
+function closeModal(){lightbox.classList.add('hidden');stopVideo();playingItem=null;document.body.style.overflow='';}
+function renderModalContent(){
+  const item=mediaItems[currentIndex];
+  modalTitle.innerText=item.name;
+  modalMeta.innerText=`${item.folder} • ${item.size}${item.faceScore>0?` • ตรงกัน: ${item.faceScore}%`:''}`;
+  downloadBtn.href=downloadBtnMobile.href=item.webViewLink;
+  if(item.type==='video'){playVideo(item,'native');return;}
+  stopVideo();playingItem=null;
+  modalImg.classList.remove('hidden');
+  modalImg.src=item.thumb;                         // แสดงภาพย่อทันที
+  const hi=hiRes(item),pre=new Image();            // แล้วค่อยสลับเป็นภาพความละเอียดสูง
+  pre.onload=()=>{if(mediaItems[currentIndex]===item)modalImg.src=hi;};pre.src=hi;
+  const pos=filteredIndices.indexOf(currentIndex),n=mediaItems[filteredIndices[(pos+1)%filteredIndices.length]];
+  if(n&&n.type==='image')new Image().src=hiRes(n);  // โหลดรูปถัดไปล่วงหน้า
+}
+function step(d,e){
+  if(e)e.stopPropagation();if(!filteredIndices.length)return;
+  const pos=filteredIndices.indexOf(currentIndex);
+  currentIndex=filteredIndices[(pos+d+filteredIndices.length)%filteredIndices.length];renderModalContent();
+}
+const nextItem=e=>step(1,e),prevItem=e=>step(-1,e);
+window.addEventListener('keydown',e=>{
+  if(lightbox.classList.contains('hidden'))return;
+  if(e.key==='Escape')closeModal();if(e.key==='ArrowRight')nextItem();if(e.key==='ArrowLeft')prevItem();
+});
+let tx0=0;
+lightbox.addEventListener('touchstart',e=>{tx0=e.changedTouches[0].screenX;},{passive:true});
+lightbox.addEventListener('touchend',e=>{const dx=tx0-e.changedTouches[0].screenX;if(dx>50)nextItem();else if(dx<-50)prevItem();},{passive:true});
+
+lucide.createIcons();
+fetchAllMedia();
+</script>
 </body>
 </html>
