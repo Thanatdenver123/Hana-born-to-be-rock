@@ -22,6 +22,7 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
 .scrollbar-none{scrollbar-width:none}
 .fs-on{position:fixed!important;inset:0;z-index:60;background:#000;margin:0!important;border-radius:0}
 .fs-on>button{display:none!important}
+#mediaWrap.drv>button{display:none!important}
 #vidBox{position:relative;width:100%;max-width:56rem;max-height:100%;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.5)}
 #modalVideo{display:block;width:100%;max-height:75vh;background:#000;margin:0 auto}
 .vid-ctl{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;color:#fff;transition:opacity .25s;background:linear-gradient(rgba(0,0,0,.35),transparent 30%,transparent 55%,rgba(0,0,0,.7))}
@@ -47,7 +48,7 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
 #mediaWrap:-webkit-full-screen #vidBox:not(.hidden){max-width:none;width:100%;height:100%;border-radius:0;display:flex;align-items:center;justify-content:center}
 #mediaWrap:-webkit-full-screen #modalVideo{height:100%;max-height:100%;object-fit:contain}
 #mediaWrap:-webkit-full-screen #modalVideoFrame{width:100%;max-width:none;height:100%;border-radius:0}
-.fs-on #modalVideo,.fs-on #modalVideoFrame{max-width:none!important;width:100%!important;height:100%!important;max-height:none!important;border-radius:0!important}
+.fs-on #modalVideo{max-width:none!important;width:100%!important;height:100%!important;max-height:none!important;border-radius:0!important}
 </style>
 </head>
 <body class="bg-[#f2f8fe] text-slate-800 min-h-screen relative overflow-x-hidden">
@@ -175,6 +176,11 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
  <button id="fsExit" onclick="toggleFullscreen()" class="hidden fixed right-3 z-[70] px-4 py-2.5 bg-black/70 hover:bg-black/90 rounded-full text-white text-sm font-semibold backdrop-blur-md border border-white/30" style="top:max(12px,env(safe-area-inset-top))">✕ ออกจากเต็มจอ</button>
  <div id="mediaWrap" class="relative flex-1 flex items-center justify-center my-2 sm:my-4 overflow-hidden group">
   <button onclick="prevItem(event)" class="absolute left-1 sm:left-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md sm:opacity-0 sm:group-hover:opacity-100 transition-all"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
+  <div id="drvTools" class="hidden absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+   <button onclick="prevItem(event)" class="w-9 h-9 rounded-full bg-black/60 text-white border border-white/30 text-sm">◀</button>
+   <button id="drvBtn" onclick="toggleDriveMenu()" class="px-3 py-1.5 rounded-full bg-black/60 text-white text-xs font-semibold border border-white/30 backdrop-blur-md">ซ่อนเมนู</button>
+   <button onclick="nextItem(event)" class="w-9 h-9 rounded-full bg-black/60 text-white border border-white/30 text-sm">▶</button>
+  </div>
   <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
   <div id="vidBox" class="hidden">
    <video id="modalVideo" playsinline preload="metadata"></video>
@@ -194,13 +200,13 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
   <iframe id="modalVideoFrame" src="" allow="autoplay; fullscreen" allowfullscreen class="hidden w-full max-w-4xl h-[75vh] sm:h-[70vh] rounded-lg sm:rounded-xl shadow-2xl border-0 bg-black"></iframe>
   <button onclick="nextItem(event)" class="absolute right-1 sm:right-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md sm:opacity-0 sm:group-hover:opacity-100 transition-all"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
  </div>
- <div class="text-center text-[10px] sm:text-xs text-slate-400 mb-2 sm:mb-0">ปัดซ้าย-ขวา หรือกดลูกศรบนคีย์บอร์ดเพื่อเปลี่ยนรูป</div>
+ <div id="lbHint" class="text-center text-[10px] sm:text-xs text-slate-400 mb-2 sm:mb-0 px-3">ปัดซ้าย-ขวา หรือกดลูกศรบนคีย์บอร์ดเพื่อเปลี่ยนรูป</div>
 </div>
 
 <script>
 const GOOGLE_API_KEY = 'AIzaSyBpNe477-EhO0iWExQJqcuRXNiGiwHfABE';
 const ROOT_FOLDER_ID = '17qWKQ4AIsFEVXNlFSEp7Mu2C_qWmKjPK';
-const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V5';
+const CACHE_STORAGE_KEY = 'HANA_MEDIA_CACHE_V6';
 const CACHE_DURATION_MS = 6 * 60 * 60 * 1000;
 
 let mediaItems = [], filteredIndices = [], currentIndex = 0, activeFilter = 'all';
@@ -216,7 +222,7 @@ const searchInput = document.getElementById('searchInput');
 
 async function fetchDriveFiles(query) {
     let files = [], pageToken = '';
-    const fields = 'nextPageToken, files(id, name, mimeType, size, thumbnailLink)';
+    const fields = 'nextPageToken, files(id, name, mimeType, size, thumbnailLink, videoMediaMetadata(width,height))';
     do {
         let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=${encodeURIComponent(fields)}&pageSize=1000&key=${GOOGLE_API_KEY}`;
         if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
@@ -270,6 +276,7 @@ async function fetchAllMedia() {
                     size: file.size ? (parseInt(file.size) / 1048576).toFixed(2) + ' MB' : 'N/A',
                     thumb: file.thumbnailLink ? file.thumbnailLink.replace(/=s\d+/, '=s400') : `https://drive.google.com/thumbnail?id=${file.id}&sz=w400`,
                     webViewLink: `https://drive.google.com/file/d/${file.id}/view`,
+                    ar: (file.videoMediaMetadata && file.videoMediaMetadata.height) ? file.videoMediaMetadata.width / file.videoMediaMetadata.height : 0,
                     faceScore: 0
                 });
             });
@@ -407,6 +414,49 @@ modalVideo.addEventListener('loadedmetadata', () => { vDur.innerText = fmtT(moda
 modalVideo.addEventListener('timeupdate', () => { vCur.innerText = fmtT(modalVideo.currentTime); if (!scrubbing && modalVideo.duration) vSeekEl.value = modalVideo.currentTime / modalVideo.duration * 1000; });
 vSeekEl.addEventListener('input', () => { scrubbing = true; if (modalVideo.duration) modalVideo.currentTime = vSeekEl.value / 1000 * modalVideo.duration; setCtl(true); });
 vSeekEl.addEventListener('change', () => { scrubbing = false; });
+
+// ---- ตัวเล่น Drive (กรณีเล่นเองไม่ได้): จัดเฟรมให้ภาพอยู่บน เมนูตกลงมาอยู่พื้นที่ดำด้านล่าง ----
+const HINT = 'ปัดซ้าย-ขวา หรือกดลูกศรบนคีย์บอร์ดเพื่อเปลี่ยนรูป';
+const lbHint = document.getElementById('lbHint'), drvTools = document.getElementById('drvTools'), drvBtn = document.getElementById('drvBtn');
+let driveMode = 'auto', driveEff = 'below';
+function driveFits() {
+    const item = mediaItems[currentIndex], ar = (item && item.ar) || 16 / 9;
+    return mediaWrap.clientWidth / ar <= mediaWrap.clientHeight - 300;
+}
+function layoutDrive() {
+    const f = modalVideoFrame;
+    if (f.classList.contains('hidden')) return;
+    const item = mediaItems[currentIndex], ar = (item && item.ar) || 16 / 9;
+    const W = mediaWrap.clientWidth, Vh = mediaWrap.clientHeight;
+    const m = driveMode === 'auto' ? (driveFits() ? 'below' : 'crop') : driveMode;
+    driveEff = m;
+    const S = f.style;
+    S.position = 'absolute'; S.maxWidth = 'none'; S.borderRadius = '0';
+    if (m === 'full') { S.left = '0px'; S.width = W + 'px'; S.top = '0px'; S.height = Vh + 'px'; }
+    else if (m === 'below') {          // ภาพอยู่บนสุด เมนูของ Drive (ยึดจากขอบล่างเฟรม) ตกลงไปอยู่ใต้ภาพ
+        const vt = W / ar;
+        S.left = '0px'; S.width = W + 'px'; S.height = (2 * Vh - vt) + 'px'; S.top = (vt - Vh) + 'px';
+    } else {                            // ซ่อนเมนูโดยดันออกนอกกรอบ (เหมาะกับแนวนอน)
+        const Wi = Math.min(W, Vh * ar), H = Vh + 660;
+        S.left = (W - Wi) / 2 + 'px'; S.width = Wi + 'px'; S.height = H + 'px'; S.top = (Vh - H) / 2 + 'px';
+    }
+    drvBtn.innerText = m === 'crop' ? 'แสดงเมนู' : 'ซ่อนเมนู';
+}
+function toggleDriveMenu() {
+    driveMode = driveEff === 'crop' ? (driveFits() ? 'auto' : 'full') : 'crop';
+    layoutDrive();
+}
+new ResizeObserver(() => layoutDrive()).observe(mediaWrap);
+async function probe(url) {   // ตรวจว่าทำไมเล่นเองไม่ได้
+    const ac = new AbortController();
+    try {
+        const r = await fetch(url, { signal: ac.signal });
+        if (r.ok) { ac.abort(); return 'ดึงไฟล์ได้ แต่เบราว์เซอร์ถอดรหัสไม่ได้ (น่าจะเป็น HEVC/.MOV)'; }
+        const j = await r.json().catch(() => ({}));
+        ac.abort();
+        return `Drive ตอบ ${r.status} ${(j.error && j.error.message) || ''}`.trim();
+    } catch (e) { return 'เชื่อมต่อไม่ได้ (' + e.message + ')'; }
+}
 const modalTitle = document.getElementById('modalTitle');
 const modalMeta = document.getElementById('modalMeta');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -415,7 +465,7 @@ const openDriveBtn = document.getElementById('openDriveBtn');
 
 function openModal(index) {
     currentIndex = index; renderModalContent();
-    lightbox.classList.remove('hidden'); document.body.style.overflow = 'hidden';
+    lightbox.classList.remove('hidden'); document.body.style.overflow = 'hidden'; document.documentElement.style.background = '#000';
 }
 function closeModal() {
     lightbox.classList.add('hidden');
@@ -423,10 +473,10 @@ function closeModal() {
     setFs(false);
     stopVideo();
     modalImg.src = '';
-    document.body.style.overflow = '';
+    document.body.style.overflow = ''; document.documentElement.style.background = '';
 }
 function stopVideo() {
-    vidTok++; vSeekEl.value = 0; vCur.innerText = '0:00'; vDur.innerText = '0:00'; vidBox.classList.remove('playing');
+    vidTok++; modalVideoFrame.removeAttribute('style'); mediaWrap.classList.remove('drv'); drvTools.classList.add('hidden'); lbHint.innerText = HINT; driveMode = 'auto'; vSeekEl.value = 0; vCur.innerText = '0:00'; vDur.innerText = '0:00'; vidBox.classList.remove('playing');
     modalVideo.pause(); modalVideo.removeAttribute('src'); modalVideo.removeAttribute('poster'); modalVideo.load();
     vidBox.classList.add('hidden');
     modalVideoFrame.classList.add('hidden'); modalVideoFrame.src = 'about:blank';
@@ -448,6 +498,8 @@ function playVideo(item) {
         vidBox.classList.add('hidden'); modalVideo.removeAttribute('src');
         modalVideoFrame.classList.remove('hidden');
         modalVideoFrame.src = `https://drive.google.com/file/d/${item.id}/preview`;
+        mediaWrap.classList.add('drv'); drvTools.classList.remove('hidden'); layoutDrive();
+        probe(srcs[0]).then(t => { if (tok === vidTok) lbHint.innerText = '⚠ เล่นในเว็บไม่ได้: ' + t; });
     };
     modalVideo.onerror = next;
     modalVideo.poster = item.thumb.replace(/=s\d+/, '=s800');
