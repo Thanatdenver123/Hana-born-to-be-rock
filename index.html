@@ -20,6 +20,34 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
 @keyframes scanLaserAnim{0%{top:10%}50%{top:90%}100%{top:10%}}
 .laser-beam{animation:scanLaserAnim 3s infinite ease-in-out}
 .scrollbar-none{scrollbar-width:none}
+.fs-on{position:fixed!important;inset:0;z-index:60;background:#000;margin:0!important;border-radius:0}
+.fs-on>button{display:none!important}
+#vidBox{position:relative;width:100%;max-width:56rem;max-height:100%;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+#modalVideo{display:block;width:100%;max-height:75vh;background:#000;margin:0 auto}
+.vid-ctl{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;color:#fff;transition:opacity .25s;background:linear-gradient(rgba(0,0,0,.35),transparent 30%,transparent 55%,rgba(0,0,0,.7))}
+.vid-ctl.off{opacity:0;pointer-events:none}
+.vid-mid{flex:1;display:flex;align-items:center;justify-content:center;gap:24px}
+.vid-btn{background:rgba(0,0,0,.5);border-radius:9999px;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;width:46px;height:46px;flex-shrink:0}
+.vid-btn.big{width:66px;height:66px}
+.vid-btn svg{width:55%;height:55%}
+.vid-bot{display:flex;align-items:center;gap:10px;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));font-size:12px}
+.vid-bot input{flex:1;min-width:0;accent-color:#36a3f9;height:24px}
+#vidBox .ico-pause{display:none}
+#vidBox.playing .ico-pause{display:block}
+#vidBox.playing .ico-play{display:none}
+.fs-on #vidBox:not(.hidden){max-width:none;width:100%;height:100%;border-radius:0;display:flex;align-items:center;justify-content:center}
+.fs-on #modalVideo{object-fit:contain}
+#mediaWrap:fullscreen{background:#000;margin:0}
+#mediaWrap:fullscreen>button{display:none!important}
+#mediaWrap:fullscreen #vidBox:not(.hidden){max-width:none;width:100%;height:100%;border-radius:0;display:flex;align-items:center;justify-content:center}
+#mediaWrap:fullscreen #modalVideo{height:100%;max-height:100%;object-fit:contain}
+#mediaWrap:fullscreen #modalVideoFrame{width:100%;max-width:none;height:100%;border-radius:0}
+#mediaWrap:-webkit-full-screen{background:#000;margin:0}
+#mediaWrap:-webkit-full-screen>button{display:none!important}
+#mediaWrap:-webkit-full-screen #vidBox:not(.hidden){max-width:none;width:100%;height:100%;border-radius:0;display:flex;align-items:center;justify-content:center}
+#mediaWrap:-webkit-full-screen #modalVideo{height:100%;max-height:100%;object-fit:contain}
+#mediaWrap:-webkit-full-screen #modalVideoFrame{width:100%;max-width:none;height:100%;border-radius:0}
+.fs-on #modalVideo,.fs-on #modalVideoFrame{max-width:none!important;width:100%!important;height:100%!important;max-height:none!important;border-radius:0!important}
 </style>
 </head>
 <body class="bg-[#f2f8fe] text-slate-800 min-h-screen relative overflow-x-hidden">
@@ -83,7 +111,7 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
 
  <div id="noResults" class="hidden text-center py-20 bg-white rounded-3xl border border-blue-100 shadow-sm">
   <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-brand-500 mb-4 border border-blue-100"><i data-lucide="search-x" class="w-8 h-8"></i></div>
-  <h3 class="text-slate-800 font-bold text-lg">ไม่พบไฟล์ที่คุณค้นหา</h3>
+  <h3 id="noResTitle" class="text-slate-800 font-bold text-lg">ไม่พบไฟล์ที่คุณค้นหา</h3>
   <p class="text-slate-400 text-sm mt-1">ลองเปลี่ยนคำค้นหา หรือสแกนหน้าใหม่อีกครั้ง</p>
  </div>
 </main>
@@ -140,13 +168,29 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
    <a id="openDriveBtn" href="#" target="_blank" class="hidden px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium">เปิดใน Drive</a>
    <a id="downloadBtn" href="#" target="_blank" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-medium shadow-md"><i data-lucide="download" class="w-4 h-4"></i><span>ดาวน์โหลด</span></a>
    <a id="downloadBtnMobile" href="#" target="_blank" class="sm:hidden p-2 bg-brand-600 rounded-lg text-white"><i data-lucide="download" class="w-4 h-4"></i></a>
+   <button id="fsBtn" onclick="toggleFullscreen()" title="เต็มจอ" class="hidden px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-xs font-medium flex items-center gap-1.5"><i data-lucide="maximize" class="w-4 h-4"></i><span>เต็มจอ</span></button>
    <button onclick="closeModal()" class="p-2 hover:bg-white/10 rounded-lg text-white/80 hover:text-white"><i data-lucide="x" class="w-5 h-5 sm:w-6 sm:h-6"></i></button>
   </div>
  </div>
- <div class="relative flex-1 flex items-center justify-center my-2 sm:my-4 overflow-hidden group">
+ <button id="fsExit" onclick="toggleFullscreen()" class="hidden fixed right-3 z-[70] px-4 py-2.5 bg-black/70 hover:bg-black/90 rounded-full text-white text-sm font-semibold backdrop-blur-md border border-white/30" style="top:max(12px,env(safe-area-inset-top))">✕ ออกจากเต็มจอ</button>
+ <div id="mediaWrap" class="relative flex-1 flex items-center justify-center my-2 sm:my-4 overflow-hidden group">
   <button onclick="prevItem(event)" class="absolute left-1 sm:left-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md sm:opacity-0 sm:group-hover:opacity-100 transition-all"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
   <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
-  <video id="modalVideo" controls playsinline preload="metadata" class="hidden w-full max-w-4xl max-h-full rounded-lg sm:rounded-xl shadow-2xl bg-black"></video>
+  <div id="vidBox" class="hidden">
+   <video id="modalVideo" playsinline preload="metadata"></video>
+   <div id="vidCtl" class="vid-ctl">
+    <div></div>
+    <div class="vid-mid">
+     <button class="vid-btn" onclick="vSkip(-10)">-10s</button>
+     <button class="vid-btn big" onclick="vToggle()"><svg class="ico-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><svg class="ico-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button>
+     <button class="vid-btn" onclick="vSkip(10)">+10s</button>
+    </div>
+    <div class="vid-bot">
+     <span id="vCur">0:00</span><input id="vSeek" type="range" min="0" max="1000" value="0" step="1"><span id="vDur">0:00</span>
+     <button class="vid-btn" style="width:36px;height:36px" onclick="toggleFullscreen()" title="เต็มจอ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+   </div>
+  </div>
   <iframe id="modalVideoFrame" src="" allow="autoplay; fullscreen" allowfullscreen class="hidden w-full max-w-4xl h-[75vh] sm:h-[70vh] rounded-lg sm:rounded-xl shadow-2xl border-0 bg-black"></iframe>
   <button onclick="nextItem(event)" class="absolute right-1 sm:right-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md sm:opacity-0 sm:group-hover:opacity-100 transition-all"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
  </div>
@@ -271,7 +315,10 @@ function renderGallery(indices) {
     galleryGrid.innerHTML = '';
     window._hasMore = () => false;
     imageCounter.innerText = indices.length;
-    if (!indices.length) { noResults.classList.remove('hidden'); return; }
+    if (!indices.length) {
+        document.getElementById('noResTitle').innerText = (isFaceSearching && isScanning) ? 'กำลังค้นหาใบหน้า... ยังไม่พบรูปที่ตรงกัน' : 'ไม่พบไฟล์ที่คุณค้นหา';
+        noResults.classList.remove('hidden'); return;
+    }
     noResults.classList.add('hidden');
 
     let rendered = 0;
@@ -332,6 +379,34 @@ const modalImg = document.getElementById('modalImage');
 const modalVideoFrame = document.getElementById('modalVideoFrame');
 const modalVideo = document.getElementById('modalVideo');
 let vidTok = 0;
+const mediaWrap = document.getElementById('mediaWrap');
+const fsBtn = document.getElementById('fsBtn');
+const fsExit = document.getElementById('fsExit');
+function setFs(on) { mediaWrap.classList.toggle('fs-on', on); fsExit.classList.toggle('hidden', !on); }
+function toggleFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    if (mediaWrap.classList.contains('fs-on')) { setFs(false); return; }
+    const req = mediaWrap.requestFullscreen || mediaWrap.webkitRequestFullscreen;   // iPhone ไม่รองรับ -> ใช้เต็มจอจำลอง
+    if (req) { try { const r = req.call(mediaWrap); if (r && r.catch) r.catch(() => setFs(true)); return; } catch (e) {} }
+    setFs(true);
+}
+const vidBox = document.getElementById('vidBox'), vidCtl = document.getElementById('vidCtl');
+const vSeekEl = document.getElementById('vSeek'), vCur = document.getElementById('vCur'), vDur = document.getElementById('vDur');
+let hideT = null, scrubbing = false;
+const fmtT = t => { if (!isFinite(t)) return '0:00'; const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = String(Math.floor(t % 60)).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`; };
+function setCtl(on) {
+    vidCtl.classList.toggle('off', !on); clearTimeout(hideT);
+    if (on && !modalVideo.paused) hideT = setTimeout(() => setCtl(false), 3000);   // ซ่อนเมนูอัตโนมัติเมื่อกำลังเล่น
+}
+function vToggle() { if (modalVideo.paused) modalVideo.play().catch(() => {}); else modalVideo.pause(); setCtl(true); }
+function vSkip(d) { modalVideo.currentTime = Math.max(0, Math.min(modalVideo.duration || 1e9, modalVideo.currentTime + d)); setCtl(true); }
+vidBox.addEventListener('click', e => { if (e.target.closest('button,input')) return; setCtl(vidCtl.classList.contains('off')); });  // แตะจอ = ซ่อน/แสดงเมนู
+modalVideo.addEventListener('play', () => { vidBox.classList.add('playing'); setCtl(true); });
+modalVideo.addEventListener('pause', () => { vidBox.classList.remove('playing'); setCtl(true); });
+modalVideo.addEventListener('loadedmetadata', () => { vDur.innerText = fmtT(modalVideo.duration); });
+modalVideo.addEventListener('timeupdate', () => { vCur.innerText = fmtT(modalVideo.currentTime); if (!scrubbing && modalVideo.duration) vSeekEl.value = modalVideo.currentTime / modalVideo.duration * 1000; });
+vSeekEl.addEventListener('input', () => { scrubbing = true; if (modalVideo.duration) modalVideo.currentTime = vSeekEl.value / 1000 * modalVideo.duration; setCtl(true); });
+vSeekEl.addEventListener('change', () => { scrubbing = false; });
 const modalTitle = document.getElementById('modalTitle');
 const modalMeta = document.getElementById('modalMeta');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -344,30 +419,41 @@ function openModal(index) {
 }
 function closeModal() {
     lightbox.classList.add('hidden');
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    setFs(false);
     stopVideo();
     modalImg.src = '';
     document.body.style.overflow = '';
 }
 function stopVideo() {
-    vidTok++;
+    vidTok++; vSeekEl.value = 0; vCur.innerText = '0:00'; vDur.innerText = '0:00'; vidBox.classList.remove('playing');
     modalVideo.pause(); modalVideo.removeAttribute('src'); modalVideo.removeAttribute('poster'); modalVideo.load();
-    modalVideo.classList.add('hidden');
+    vidBox.classList.add('hidden');
     modalVideoFrame.classList.add('hidden'); modalVideoFrame.src = 'about:blank';
 }
 // เล่นด้วย <video> ของเบราว์เซอร์ก่อน (แถบควบคุมเล็ก ไม่บังภาพ) ถ้าเล่นไม่ได้ค่อยใช้ตัวเล่นของ Drive
 function playVideo(item) {
     stopVideo();
     const tok = vidTok;
-    modalVideo.onerror = () => {
+    const srcs = [
+        `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${GOOGLE_API_KEY}`,
+        `https://drive.usercontent.google.com/download?id=${item.id}&export=download&confirm=t`
+    ];
+    let k = 0;
+    const next = () => {
         if (tok !== vidTok) return;
-        modalVideo.classList.add('hidden'); modalVideo.removeAttribute('src');
+        if (k < srcs.length) { modalVideo.src = srcs[k++]; modalVideo.play().catch(() => {}); return; }
+        const code = modalVideo.error ? modalVideo.error.code : '?';
+        modalMeta.innerText += ` • ตัวเล่น Drive (video error ${code})`;
+        vidBox.classList.add('hidden'); modalVideo.removeAttribute('src');
         modalVideoFrame.classList.remove('hidden');
         modalVideoFrame.src = `https://drive.google.com/file/d/${item.id}/preview`;
     };
+    modalVideo.onerror = next;
     modalVideo.poster = item.thumb.replace(/=s\d+/, '=s800');
-    modalVideo.classList.remove('hidden');
-    modalVideo.src = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${GOOGLE_API_KEY}`;
-    modalVideo.play().catch(() => {});
+    vidBox.classList.remove('hidden');
+    setCtl(true);
+    next();
 }
 function renderModalContent() {
     const item = mediaItems[currentIndex];
@@ -379,11 +465,11 @@ function renderModalContent() {
 
     if (item.type === 'video') {
         modalImg.classList.add('hidden'); modalImg.src = '';
-        openDriveBtn.classList.remove('hidden');
+        openDriveBtn.classList.remove('hidden'); fsBtn.classList.remove('hidden');
         playVideo(item);
     } else {
-        stopVideo();
-        openDriveBtn.classList.add('hidden');
+        stopVideo(); setFs(false);
+        openDriveBtn.classList.add('hidden'); fsBtn.classList.add('hidden');
         modalImg.classList.remove('hidden');
         modalImg.src = item.thumb.replace(/=s\d+/, '=s1600');
     }
@@ -399,7 +485,8 @@ const nextItem = e => stepItem(e, 1), prevItem = e => stepItem(e, -1);
 
 window.addEventListener('keydown', e => {
     if (lightbox.classList.contains('hidden')) return;
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') { if (mediaWrap.classList.contains('fs-on')) setFs(false); else closeModal(); }
+    if (e.key === ' ' && !vidBox.classList.contains('hidden')) { e.preventDefault(); vToggle(); }
     if (e.key === 'ArrowRight') nextItem();
     if (e.key === 'ArrowLeft') prevItem();
 });
@@ -428,6 +515,7 @@ const MATCH_THRESHOLD = 0.5;
 let modelsReady = false, modelsPromise = null, stream = null, liveTimer = null;
 let scanToken = 0, source = null, queryDescriptor = null, queryFaces = [];
 const descMap = {};
+let isScanning = false;
 
 const tinyOpt = (size, score = 0.4) => new faceapi.TinyFaceDetectorOptions({ inputSize: size, scoreThreshold: score });
 const dist = (a, b) => { let s = 0; for (let i = 0; i < 128; i++) { const d = a[i] - b[i]; s += d * d; } return Math.sqrt(s); };
@@ -568,10 +656,11 @@ async function processFaceSearch() {
     startSearch(faces, canvas);
 }
 
-async function startSearch(faces, canvas) {
+async function startSearch(faces, canvas, resumed) {
     const token = ++scanToken;
     isFaceSearching = true;
-    queryFaces = faces.map(f => ({ desc: f.descriptor, img: cropFace(canvas, f.detection.box) }));
+    queryFaces = resumed || faces.map(f => ({ desc: f.descriptor, img: cropFace(canvas, f.detection.box) }));
+    if (!resumed) { saveQ(queryFaces[0].desc, queryFaces[0].img); try { sessionStorage.setItem('HANA_FQN', '0'); } catch (e) {} }
     queryDescriptor = queryFaces[0].desc;
     $('faceStatusBanner').classList.remove('hidden');
     $('faceQueryPreview').src = queryFaces[0].img;
@@ -584,7 +673,7 @@ async function startSearch(faces, canvas) {
             im.src = q.img;
             im.className = 'w-14 h-14 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer ' + (i ? 'border-white/40' : 'border-yellow-300');
             im.onclick = () => {
-                queryDescriptor = q.desc; $('faceQueryPreview').src = q.img;
+                queryDescriptor = q.desc; $('faceQueryPreview').src = q.img; saveQ(q.desc, q.img);
                 [...list.children].forEach(c => c.className = c.className.replace('border-yellow-300', 'border-white/40'));
                 im.className = im.className.replace('border-white/40', 'border-yellow-300');
                 applyMatches();
@@ -617,6 +706,8 @@ function updateProgress(done, total) {
 }
 
 async function scanGallery(token) {
+    isScanning = true;
+    try { await loadModels(); } catch (e) { isScanning = false; return; }
     const items = mediaItems, total = items.length;
     Object.assign(descMap, await idbGetMany(items.map(i => i.id)));   // ใช้ผลที่เคยสแกนไว้แล้วทันที
     const todo = items.filter(i => !descMap[i.id]);
@@ -637,9 +728,9 @@ async function scanGallery(token) {
             chain = chain.then(async () => {
                 if (token !== scanToken) return;
                 if (im) {
-                    let ds = [];
+                    let ds = null;
                     try { ds = (await faceapi.detectAllFaces(im, tinyOpt(320)).withFaceLandmarks(true).withFaceDescriptors()).map(r => r.descriptor); } catch (e) {}
-                    descMap[item.id] = ds; idbPut(item.id, ds);
+                    if (ds) { descMap[item.id] = ds; idbPut(item.id, ds); }   // ไม่เก็บผลที่ error
                 }
                 done++;
                 const now = Date.now();
@@ -648,14 +739,26 @@ async function scanGallery(token) {
             await chain;
         }
     };
-    await Promise.all(Array.from({ length: 6 }, worker));
+    await Promise.all(Array.from({ length: /Mobi|Android|iPhone/i.test(navigator.userAgent) ? 3 : 6 }, worker));
     if (token !== scanToken) return;
-    updateProgress(total, total); applyMatches();
+    isScanning = false; updateProgress(total, total); applyMatches();
     $('scanStatusTitle').innerText = 'สแกนเสร็จสิ้น';
     setTimeout(() => { if (token === scanToken) $('faceProgressContainer').classList.add('hidden'); }, 1500);
 }
 
+function saveQ(d, img) { try { sessionStorage.setItem('HANA_FQ', JSON.stringify({ d: Array.from(d), img })); } catch (e) {} }
+// ถ้าหน้าเว็บถูกรีโหลดระหว่างสแกน (มือถือแรมเต็ม) ให้สแกนต่ออัตโนมัติ โดยใช้ผลที่เก็บไว้แล้ว (ไม่เกิน 2 ครั้ง)
+function resumeSearch() {
+    try {
+        const r = JSON.parse(sessionStorage.getItem('HANA_FQ') || 'null'), n = +sessionStorage.getItem('HANA_FQN') || 0;
+        if (!r || n >= 2) return;
+        sessionStorage.setItem('HANA_FQN', String(n + 1));
+        startSearch(null, null, [{ desc: Float32Array.from(r.d), img: r.img }]);
+    } catch (e) {}
+}
 function clearFaceSearch() {
+    isScanning = false;
+    try { sessionStorage.removeItem('HANA_FQ'); } catch (e) {}
     scanToken++; isFaceSearching = false; queryDescriptor = null;
     mediaItems.forEach(i => i.faceScore = 0);
     $('faceStatusBanner').classList.add('hidden');
@@ -665,8 +768,7 @@ function clearFaceSearch() {
 setTimeout(() => loadModels().catch(() => {}), 2500);   // โหลด AI ล่วงหน้า ให้เปิดสแกนแล้วใช้ได้ทันที
 
 
-// เริ่มโหลดข้อมูล
-fetchAllMedia();
+fetchAllMedia().then(resumeSearch);
 </script>
 </body>
 </html>
