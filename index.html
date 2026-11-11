@@ -146,7 +146,8 @@ body{font-family:'Noto Sans Thai','Plus Jakarta Sans',sans-serif}
  <div class="relative flex-1 flex items-center justify-center my-2 sm:my-4 overflow-hidden group">
   <button onclick="prevItem(event)" class="absolute left-1 sm:left-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md sm:opacity-0 sm:group-hover:opacity-100 transition-all"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
   <img id="modalImage" src="" alt="" class="hidden max-h-full max-w-full object-contain rounded-lg sm:rounded-xl shadow-2xl relative">
-  <iframe id="modalVideoFrame" src="" allow="autoplay; fullscreen" allowfullscreen class="hidden w-full max-w-4xl h-[60vh] sm:h-[70vh] rounded-lg sm:rounded-xl shadow-2xl border-0 bg-black"></iframe>
+  <video id="modalVideo" controls playsinline preload="metadata" class="hidden w-full max-w-4xl max-h-full rounded-lg sm:rounded-xl shadow-2xl bg-black"></video>
+  <iframe id="modalVideoFrame" src="" allow="autoplay; fullscreen" allowfullscreen class="hidden w-full max-w-4xl h-[75vh] sm:h-[70vh] rounded-lg sm:rounded-xl shadow-2xl border-0 bg-black"></iframe>
   <button onclick="nextItem(event)" class="absolute right-1 sm:right-6 z-10 p-2 sm:p-3 bg-black/40 hover:bg-black/60 rounded-full text-white backdrop-blur-md sm:opacity-0 sm:group-hover:opacity-100 transition-all"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
  </div>
  <div class="text-center text-[10px] sm:text-xs text-slate-400 mb-2 sm:mb-0">ปัดซ้าย-ขวา หรือกดลูกศรบนคีย์บอร์ดเพื่อเปลี่ยนรูป</div>
@@ -329,6 +330,8 @@ searchInput.addEventListener('input', applySmartSearch);
 const lightbox = document.getElementById('lightbox');
 const modalImg = document.getElementById('modalImage');
 const modalVideoFrame = document.getElementById('modalVideoFrame');
+const modalVideo = document.getElementById('modalVideo');
+let vidTok = 0;
 const modalTitle = document.getElementById('modalTitle');
 const modalMeta = document.getElementById('modalMeta');
 const downloadBtn = document.getElementById('downloadBtn');
@@ -341,9 +344,30 @@ function openModal(index) {
 }
 function closeModal() {
     lightbox.classList.add('hidden');
-    modalVideoFrame.src = 'about:blank';   // หยุดเสียง/วิดีโอทันที
+    stopVideo();
     modalImg.src = '';
     document.body.style.overflow = '';
+}
+function stopVideo() {
+    vidTok++;
+    modalVideo.pause(); modalVideo.removeAttribute('src'); modalVideo.removeAttribute('poster'); modalVideo.load();
+    modalVideo.classList.add('hidden');
+    modalVideoFrame.classList.add('hidden'); modalVideoFrame.src = 'about:blank';
+}
+// เล่นด้วย <video> ของเบราว์เซอร์ก่อน (แถบควบคุมเล็ก ไม่บังภาพ) ถ้าเล่นไม่ได้ค่อยใช้ตัวเล่นของ Drive
+function playVideo(item) {
+    stopVideo();
+    const tok = vidTok;
+    modalVideo.onerror = () => {
+        if (tok !== vidTok) return;
+        modalVideo.classList.add('hidden'); modalVideo.removeAttribute('src');
+        modalVideoFrame.classList.remove('hidden');
+        modalVideoFrame.src = `https://drive.google.com/file/d/${item.id}/preview`;
+    };
+    modalVideo.poster = item.thumb.replace(/=s\d+/, '=s800');
+    modalVideo.classList.remove('hidden');
+    modalVideo.src = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${GOOGLE_API_KEY}`;
+    modalVideo.play().catch(() => {});
 }
 function renderModalContent() {
     const item = mediaItems[currentIndex];
@@ -355,12 +379,10 @@ function renderModalContent() {
 
     if (item.type === 'video') {
         modalImg.classList.add('hidden'); modalImg.src = '';
-        modalVideoFrame.classList.remove('hidden');
         openDriveBtn.classList.remove('hidden');
-        // Google แปลงวิดีโอ (รวม .MOV) เป็นรูปแบบที่เล่นบนเว็บได้เอง
-        modalVideoFrame.src = `https://drive.google.com/file/d/${item.id}/preview`;
+        playVideo(item);
     } else {
-        modalVideoFrame.classList.add('hidden'); modalVideoFrame.src = 'about:blank';
+        stopVideo();
         openDriveBtn.classList.add('hidden');
         modalImg.classList.remove('hidden');
         modalImg.src = item.thumb.replace(/=s\d+/, '=s1600');
